@@ -1,6 +1,15 @@
 import type { NextConfig } from "next";
 
 /**
+ * Dois modos de build:
+ * - Padrão (Vercel / Node): site completo com rotas de API, proxy e cabeçalhos.
+ * - Estático (STATIC_EXPORT=true): versão de apresentação para hospedagem
+ *   estática (GitHub Pages). Ver `.github/workflows/deploy-pages.yml`.
+ */
+const isStaticExport = process.env.STATIC_EXPORT === "true";
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || undefined;
+
+/**
  * Cabeçalhos de segurança aplicados a todas as rotas.
  * Uma Content-Security-Policy completa deve ser adicionada quando os domínios
  * de terceiros definitivos (analytics, mapas, avaliações) forem conhecidos.
@@ -19,13 +28,18 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   images: {
     formats: ["image/avif", "image/webp"],
+    unoptimized: isStaticExport,
   },
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion"],
   },
-  async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
-  },
+  ...(isStaticExport
+    ? { output: "export" as const, trailingSlash: true, basePath }
+    : {
+        async headers() {
+          return [{ source: "/(.*)", headers: securityHeaders }];
+        },
+      }),
 };
 
 export default nextConfig;

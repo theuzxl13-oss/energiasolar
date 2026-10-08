@@ -1,12 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Mail, MessageCircle, Phone } from "lucide-react";
 import { useDemoLeads } from "@/hooks/use-demo-leads";
 import { CLIENT_TYPE_LABELS, PROPERTY_TYPE_LABELS, SERVICE_LABELS, SOURCE_LABELS, STATUS_LABELS } from "@/lib/labels";
 import { LEAD_STATUSES, type LeadStatus } from "@/types";
 import { formatCurrency, formatDate, onlyDigits } from "@/lib/utils";
 import { AdminPageHeader, Panel, StatusBadge } from "./ui";
+
+/** Monta a URL de detalhe de um lead. */
+export function leadDetailHref(id: string) {
+  return `/admin/leads/detalhe?id=${encodeURIComponent(id)}`;
+}
+
+export function LeadDetailFromUrl() {
+  const id = useSearchParams().get("id") ?? "";
+  return <LeadDetail id={id} />;
+}
 
 export function LeadDetail({ id }: { id: string }) {
   const { leads, ready, updateStatus } = useDemoLeads();

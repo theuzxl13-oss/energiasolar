@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { leadDetailHref } from "./lead-detail";
 import { ArrowRight, BatteryCharging, FileText, FolderKanban, Inbox, Sun, Users, Zap, Percent } from "lucide-react";
 import { useDemoLeads } from "@/hooks/use-demo-leads";
 import { dashboardKpis, leadsByMonth, leadsByService, leadsByStatus } from "@/lib/admin-metrics";
@@ -64,7 +65,7 @@ export function AdminDashboard() {
           <ul className="divide-y divide-slate-100">
             {recent.map((lead) => (
               <li key={lead.id}>
-                <Link href={`/admin/leads/${lead.id}`} className="flex items-center justify-between gap-4 py-3 hover:bg-slate-50 sm:px-2">
+                <Link href={leadDetailHref(lead.id)} className="flex items-center justify-between gap-4 py-3 hover:bg-slate-50 sm:px-2">
                   <span className="min-w-0">
                     <span className="block truncate font-medium text-night-900">{lead.name}</span>
                     <span className="block truncate text-xs text-slate-500">

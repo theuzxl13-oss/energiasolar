@@ -5,7 +5,11 @@ export const alt = `${siteConfig.name} — Energia Solar e Mobilidade Elétrica`
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-/** Imagem Open Graph gerada dinamicamente (compartilhamento em redes sociais). */
+/** Gerada no build (compatível também com exportação estática). */
+export const dynamic = "force-static";
+
+/** Imagem Open Graph (compartilhamento em redes sociais). */
+
 export default function OpengraphImage() {
   return new ImageResponse(
     (

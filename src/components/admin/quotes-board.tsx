@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { leadDetailHref } from "./lead-detail";
 import { useDemoLeads } from "@/hooks/use-demo-leads";
 import { demoQuoteValue } from "@/lib/admin-metrics";
 import { SERVICE_LABELS, STATUS_LABELS } from "@/lib/labels";
@@ -33,7 +34,7 @@ export function QuotesBoard() {
               <ul className="mt-1 space-y-2">
                 {items.map((lead) => (
                   <li key={lead.id}>
-                    <Link href={`/admin/leads/${lead.id}`} className="block rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200 transition hover:shadow-md">
+                    <Link href={leadDetailHref(lead.id)} className="block rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200 transition hover:shadow-md">
                       <p className="font-medium text-night-900">{lead.name}</p>
                       <p className="mt-0.5 text-xs text-slate-500">
                         {SERVICE_LABELS[lead.service]} • {lead.city}/{lead.state}

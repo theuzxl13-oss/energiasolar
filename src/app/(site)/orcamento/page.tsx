@@ -1,46 +1,17 @@
+import { Suspense } from "react";
 import { Clock, FileText, ShieldCheck, Sparkles } from "lucide-react";
 import { buildMetadata } from "@/lib/seo";
-import { SERVICE_QUERY_ALIASES } from "@/lib/labels";
-import { STATE_UFS } from "@/lib/brazil";
-import { PROPERTY_TYPES, type PropertyType } from "@/types";
 import { siteConfig } from "@/config/site";
 import { Container, Section } from "@/components/ui/primitives";
 import { PageHero } from "@/components/sections/page-hero";
-import { QuoteForm, type QuoteFormDefaults } from "@/components/forms/quote-form";
+import { QuoteForm } from "@/components/forms/quote-form";
+import { QuoteFormFromUrl } from "@/components/forms/quote-form-from-url";
 
 export const metadata = buildMetadata({
   title: "Solicitar Orçamento — Energia Solar, Carregadores e Eletropostos",
   description: "Solicite um orçamento sem compromisso para energia solar, carregador de carro elétrico, wallbox, condomínio, frota ou eletroposto.",
   path: "/orcamento",
 });
-
-interface PageProps {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
-
-function first(value: string | string[] | undefined) {
-  return (Array.isArray(value) ? value[0] : value)?.slice(0, 200);
-}
-
-/** Converte os parâmetros da URL (vindos dos simuladores/CTAs) em valores iniciais do formulário. */
-function parseDefaults(params: Record<string, string | string[] | undefined>): QuoteFormDefaults {
-  const service = SERVICE_QUERY_ALIASES[first(params.servico) ?? ""];
-  const state = first(params.uf)?.toUpperCase();
-  const property = first(params.imovel) as PropertyType | undefined;
-  const bill = Number(first(params.conta));
-  const solution = first(params.solucao);
-  const vehicles = Number(first(params.veiculos));
-
-  return {
-    service,
-    state: state && STATE_UFS.includes(state) ? state : undefined,
-    city: first(params.cidade),
-    propertyType: property && PROPERTY_TYPES.includes(property) ? property : undefined,
-    averageBill: Number.isFinite(bill) && bill > 0 ? String(Math.round(bill)) : undefined,
-    evCount: Number.isFinite(vehicles) && vehicles > 0 ? String(Math.round(vehicles)) : undefined,
-    message: solution ? `Recomendação do simulador: ${solution}.` : undefined,
-  };
-}
 
 const reasons = [
   { icon: Sparkles, title: "Sem compromisso", text: "Análise inicial gratuita da sua necessidade." },
@@ -49,8 +20,7 @@ const reasons = [
   { icon: Clock, title: "Retorno rápido", text: "Contato da equipe em horário comercial." },
 ];
 
-export default async function OrcamentoPage({ searchParams }: PageProps) {
-  const defaults = parseDefaults(await searchParams);
+export default function OrcamentoPage() {
   return (
     <>
       <PageHero
@@ -62,7 +32,9 @@ export default async function OrcamentoPage({ searchParams }: PageProps) {
       <Section className="pt-0 sm:pt-0 lg:pt-0">
         <Container className="grid gap-20 lg:grid-cols-12 lg:gap-12">
           <div className="lg:col-span-7">
-            <QuoteForm defaults={defaults} />
+            <Suspense fallback={<QuoteForm />}>
+              <QuoteFormFromUrl />
+            </Suspense>
           </div>
           <aside className="lg:col-span-4 lg:col-start-9">
             <ul>

@@ -5,7 +5,6 @@ import { getLeadRepository } from "@/services/leads";
 import { AdminPageHeader, Panel } from "@/components/admin/ui";
 
 export const metadata = { title: "Configurações" };
-export const dynamic = "force-dynamic";
 
 /** Mostra apenas SE cada integração está configurada — nunca os valores secretos. */
 export default function AdminConfiguracoesPage() {

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { leadDetailHref } from "./lead-detail";
 import { useMemo, useState } from "react";
 import { Download, RotateCcw, Search } from "lucide-react";
 import { useDemoLeads } from "@/hooks/use-demo-leads";
@@ -104,7 +105,7 @@ export function LeadsTable() {
               {filtered.map((lead) => (
                 <tr key={lead.id} className="hover:bg-slate-50">
                   <td className="px-5 py-3">
-                    <Link href={`/admin/leads/${lead.id}`} className="font-semibold text-night-900 hover:text-brand-700">
+                    <Link href={leadDetailHref(lead.id)} className="font-semibold text-night-900 hover:text-brand-700">
                       {lead.name}
                     </Link>
                     <span className="block text-xs text-slate-500">{lead.email}</span>
