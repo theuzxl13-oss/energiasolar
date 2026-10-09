@@ -11,7 +11,9 @@ import { cn } from "@/lib/utils";
  * profundidade ao redor.
  *
  * Desempenho: canvas 2D, DPR limitado a 2, quantidade proporcional à área,
- * animação pausada fora da tela e desativada com `prefers-reduced-motion`.
+ * animação pausada fora da tela. Com `prefers-reduced-motion` (ex.: "Efeitos de animação"
+ * desligado no Windows) o movimento fica mais suave — sem a entrada inicial e com balanço
+ * menor — mas as partículas continuam vivas e reagindo ao cursor/toque.
  */
 
 export type ConstellationShape = "bolt" | "sun" | "plug";
@@ -208,6 +210,8 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
     if (!canvas || !ctx) return;
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    /** Intensidade do balanço: menor para quem prefere menos movimento. */
+    const drift = reduceMotion ? 0.4 : 1;
     const pointer = { x: -9999, y: -9999 };
     let particles: Particle[] = [];
     let width = 0;
@@ -259,9 +263,9 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
       ctx!.clearRect(0, 0, width, height);
       ctx!.lineWidth = 1;
       for (const particle of particles) {
-        if (!reduceMotion) {
-          const ox = Math.sin(t * 0.8 + particle.phase) * particle.amp;
-          const oy = Math.cos(t * 0.6 + particle.phase * 1.3) * particle.amp;
+        {
+          const ox = Math.sin(t * 0.8 + particle.phase) * particle.amp * drift;
+          const oy = Math.cos(t * 0.6 + particle.phase * 1.3) * particle.amp * drift;
           let gx = particle.tx + ox;
           let gy = particle.ty + oy;
           const dx = particle.x - pointer.x;
@@ -274,7 +278,7 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
           }
           particle.x += (gx - particle.x) * 0.055;
           particle.y += (gy - particle.y) * 0.055;
-          particle.rot += particle.spin;
+          particle.rot += particle.spin * drift;
         }
         const s = particle.size;
         const cos = Math.cos(particle.rot);
@@ -299,13 +303,13 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
 
     function loop(now: number) {
       draw(now);
-      if (visible && !reduceMotion) frame = requestAnimationFrame(loop);
+      if (visible) frame = requestAnimationFrame(loop);
     }
 
     function begin() {
       build();
-      if (reduceMotion) draw(performance.now());
-      else frame = requestAnimationFrame(loop);
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(loop);
     }
 
     if (image) {
@@ -321,16 +325,16 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
       begin();
     }
 
-    const resizeObserver = new ResizeObserver(() => {
-      build();
-      if (reduceMotion) draw(performance.now());
-    });
+    const resizeObserver = new ResizeObserver(() => build());
     resizeObserver.observe(canvas);
 
     const intersectionObserver = new IntersectionObserver(([entry]) => {
       const wasVisible = visible;
       visible = Boolean(entry?.isIntersecting);
-      if (visible && !wasVisible && !reduceMotion) frame = requestAnimationFrame(loop);
+      if (visible && !wasVisible) {
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(loop);
+      }
       if (!visible) cancelAnimationFrame(frame);
     });
     intersectionObserver.observe(canvas);
