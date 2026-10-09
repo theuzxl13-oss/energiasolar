@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
+import { brandMonogram } from "@/components/layout/logo";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -62,9 +64,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 function Brand() {
   return (
     <Link href="/admin" className="flex items-center gap-3 px-2">
-      <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-400 to-volt-500 font-display text-sm font-bold text-white">
-        {siteConfig.name.charAt(0)}
-      </span>
+      <Image src={brandMonogram} alt="" className="h-8 w-auto" sizes="64px" />
       <span className="leading-tight">
         <span className="block font-display font-bold text-white">{siteConfig.name}</span>
         <span className="block text-[11px] text-slate-500">Painel administrativo</span>

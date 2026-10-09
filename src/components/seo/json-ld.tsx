@@ -26,8 +26,11 @@ export function OrganizationJsonLd() {
     "@type": "LocalBusiness",
     "@id": `${siteConfig.url}/#empresa`,
     name: siteConfig.name,
+    slogan: siteConfig.slogan,
     description: siteConfig.description,
     url: siteConfig.url,
+    logo: `${siteConfig.url}${siteConfig.logoOriginal}`,
+    image: `${siteConfig.url}${siteConfig.logoOriginal}`,
     knowsAbout: ["Energia solar fotovoltaica", "Carregadores para veículos elétricos", "Wallbox", "Eletropostos"],
     makesOffer: [
       { "@type": "Offer", itemOffered: { "@type": "Service", name: "Projeto e instalação de energia solar" } },

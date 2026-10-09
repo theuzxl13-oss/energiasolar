@@ -13,16 +13,21 @@
 
 export const siteConfig = {
   /** Nome comercial exibido no site. */
-  name: "Sua Empresa",
-  /** Complemento exibido ao lado do nome (logo, rodapé, títulos). */
+  name: "DC Eco Energy",
+  /** Slogan oficial da marca. */
+  slogan: "Gerando energia, carregando o futuro.",
+  /** Descrição curta da atuação (títulos e SEO). */
   tagline: "Energia Solar & Mobilidade Elétrica",
   /** Razão social para rodapé e documentos. */
-  legalName: "Razão Social da Empresa (a definir)",
+  legalName: "DC Eco Energy (razão social a definir)",
   /** CNPJ — placeholder. Nunca preencher com número fictício "realista". */
   cnpj: "00.000.000/0000-00",
 
-  /** Caminho de um logo em /public (ex.: "/logo.svg"). `null` usa o logotipo vetorial padrão. */
-  logo: null as string | null,
+  /**
+   * Logo original (fundo claro), servido em /public — usado no JSON-LD.
+   * As versões para fundo escuro ficam em `src/assets/brand/` (ver README).
+   */
+  logoOriginal: "/brand/dc-eco-energy-original.jpg",
 
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
   locale: "pt_BR",

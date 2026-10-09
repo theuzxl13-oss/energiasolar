@@ -4,7 +4,7 @@ import { isDemoMode, siteConfig } from "@/config/site";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { Container } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
-import { Logo } from "./logo";
+import { FullLogo } from "./logo";
 import { SocialLinks } from "./social-icons";
 
 export function Footer() {
@@ -28,8 +28,8 @@ export function Footer() {
 
         <div className="grid gap-12 pb-16 md:grid-cols-2 lg:grid-cols-12">
           <div className="lg:col-span-4">
-            <Logo />
-            <p className="mt-5 max-w-sm text-sm leading-relaxed font-extralight">{siteConfig.description}</p>
+            <FullLogo className="max-w-[300px]" />
+            <p className="mt-8 max-w-sm text-sm leading-relaxed font-extralight">{siteConfig.description}</p>
             <SocialLinks className="mt-6" />
           </div>
 

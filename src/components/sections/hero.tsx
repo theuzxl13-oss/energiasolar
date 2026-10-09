@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { siteConfig } from "@/config/site";
 import { ButtonLink } from "@/components/ui/button";
 import { Container } from "@/components/ui/primitives";
 import { Constellation } from "@/components/illustrations/constellation";
@@ -18,7 +19,7 @@ export function Hero() {
       <Container className="grid lg:grid-cols-12">
         <div className="lg:col-span-8">
           <motion.p initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease }} className="label-caps text-spark">
-            Energia solar · Carregadores · Eletropostos
+            {siteConfig.slogan}
           </motion.p>
 
           <motion.h1

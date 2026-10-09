@@ -157,7 +157,8 @@ Edite **um único arquivo**: [`src/config/site.ts`](src/config/site.ts).
 
 Ali estão nome, slogan, razão social, CNPJ, logo, telefone, WhatsApp, e-mail, endereço, área de atendimento, horário, redes sociais e a mensagem padrão do WhatsApp. Navbar, footer, contato, SEO, JSON-LD, chat e admin leem desse arquivo.
 
-- **Logo:** coloque o arquivo em `public/` (ex.: `public/logo.svg`) e defina `logo: "/logo.svg"`.
+- **Logo:** o logo original (fundo claro) fica em `public/brand/dc-eco-energy-original.jpg`. As versões para o fundo escuro do site ficam em `src/assets/brand/` (`dc-monogram-dark.png` na navbar e `dc-eco-energy-dark.png` no rodapé); o favicon está em `src/app/icon.png` e `src/app/apple-icon.png`. Para trocar, substitua esses arquivos mantendo os nomes. O ideal é receber do designer versões em SVG/PNG transparente para fundo escuro.
+- **Nome e slogan:** `name` e `slogan` em `src/config/site.ts`.
 - **Redes sociais:** use `null` para ocultar um ícone.
 - **Indicadores** ("+X projetos" etc.): [`src/config/stats.ts`](src/config/stats.ts). Mude `isDemo` para `false` apenas com números reais e verificáveis.
 - **Cores:** tokens `brand` (verde), `volt` (azul) e `night` (escuros) em [`src/app/globals.css`](src/app/globals.css).
