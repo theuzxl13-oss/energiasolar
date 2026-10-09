@@ -130,19 +130,34 @@ function sampleTargets(shape: ConstellationShape, width: number, height: number,
   return points;
 }
 
-/** Paleta das partículas soltas no tema claro (tons mais fortes para aparecer sobre o branco). */
-const PALETTE_LIGHT = ["#069854", "#069854", "#1d74f1", "#1d74f1", "#d97706", "#15846e", "#0891b2", "#4d7c0f", "#155dde", "#087945"];
+/**
+ * Tema claro: paleta do logotipo para fundo claro (azul-marinho do texto,
+ * verde da marca e âmbar do sol), em vez das cores "neon" do tema escuro.
+ */
+const LIGHT_TONES = {
+  navy: ["#0a3460", "#1e4f8a"],
+  green: ["#069854", "#0b5f39"],
+  amber: ["#d97706", "#b45309"],
+} as const;
+const PALETTE_LIGHT = ["#0a3460", "#0a3460", "#1e4f8a", "#069854", "#069854", "#d97706"];
 
 const isLightTheme = () => document.documentElement.dataset.theme === "light";
 
 /**
- * Ajusta a cor do pixel do logo para o fundo atual:
- * no escuro clareia tons apagados; no claro escurece tons muito claros.
+ * Cor da partícula a partir do pixel do logo:
+ * - escuro: mantém a cor original, clareando tons apagados;
+ * - claro: converte para o tom de marca mais próximo (verde, âmbar ou azul-marinho).
  */
 function particleColor(r: number, g: number, b: number, light: boolean) {
   const max = Math.max(r, g, b, 1);
-  const factor = light ? (max > 190 ? 190 / max : 1) : max < 170 ? 170 / max : 1;
-  return `rgb(${Math.min(255, Math.round(r * factor))},${Math.min(255, Math.round(g * factor))},${Math.min(255, Math.round(b * factor))})`;
+  if (!light) {
+    const factor = max < 170 ? 170 / max : 1;
+    return `rgb(${Math.min(255, Math.round(r * factor))},${Math.min(255, Math.round(g * factor))},${Math.min(255, Math.round(b * factor))})`;
+  }
+  const bright = max > 150 ? 0 : 1;
+  if (g > r + 15 && g > b) return LIGHT_TONES.green[bright]!;
+  if (r > b + 40 && g > b + 10) return LIGHT_TONES.amber[bright]!;
+  return LIGHT_TONES.navy[bright]!;
 }
 
 /**
@@ -228,6 +243,7 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
     let visible = true;
     let start = performance.now();
     let logoImage: HTMLImageElement | null = null;
+    let lineWidth = 1;
     let cancelled = false;
 
     function build() {
@@ -259,11 +275,14 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
         color: color ?? palette[Math.floor(rand() * palette.length)]!,
         phase: rand() * Math.PI * 2,
         amp: isAmbient ? 6 + rand() * 14 : 0.6 + rand() * 2.4,
-        alpha: isAmbient ? 0.18 + rand() * 0.3 : 0.55 + rand() * 0.45,
+        // No claro, partículas soltas mais discretas e figura com mais presença.
+        alpha: isAmbient ? (light ? 0.12 + rand() * 0.18 : 0.18 + rand() * 0.3) : light ? 0.7 + rand() * 0.3 : 0.55 + rand() * 0.45,
       });
+      lineWidth = light ? 1.25 : 1;
+      const ambientCount = Math.round(((light ? ambient * 0.5 : ambient) * width) / 700);
       particles = [
         ...targets.map(([x, y, color]) => makeParticle(x, y, false, color)),
-        ...Array.from({ length: Math.round((ambient * width) / 700) }, () => makeParticle(rand() * width, rand() * height, true)),
+        ...Array.from({ length: ambientCount }, () => makeParticle(rand() * width, rand() * height, true)),
       ];
       start = performance.now();
     }
@@ -271,7 +290,7 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
     function draw(now: number) {
       const t = (now - start) / 1000;
       ctx!.clearRect(0, 0, width, height);
-      ctx!.lineWidth = 1;
+      ctx!.lineWidth = lineWidth;
       for (const particle of particles) {
         {
           const ox = Math.sin(t * 0.8 + particle.phase) * particle.amp * drift;

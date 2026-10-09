@@ -45,7 +45,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={inter.variable}>
+    // suppressHydrationWarning: o tema salvo (data-theme) é aplicado por script antes da hidratação.
+    <html lang="pt-BR" className={inter.variable} suppressHydrationWarning>
       <body className="min-h-dvh font-sans antialiased">
         <MotionProvider>{children}</MotionProvider>
       </body>
