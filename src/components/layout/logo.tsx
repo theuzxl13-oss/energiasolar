@@ -3,20 +3,20 @@ import Link from "next/link";
 import { siteConfig } from "@/config/site";
 import { cn } from "@/lib/utils";
 // Versões do logo para fundo escuro (fundo transparente, partes escuras em branco).
-import monogram from "@/assets/brand/dc-monogram-dark.png";
+import monogram from "@/assets/brand/dc-emblem-dark.png";
 import fullLogo from "@/assets/brand/dc-eco-energy-dark.png";
 
 /** Monograma "DC" + nome da marca — usado na navbar. */
 export function Logo({ className }: { tone?: "dark" | "light"; className?: string }) {
   return (
     <Link href="/" className={cn("flex items-center gap-3", className)} aria-label={`${siteConfig.name} — página inicial`}>
-      <Image src={monogram} alt="" className="h-8 w-auto sm:h-9" priority sizes="80px" />
+      <Image src={monogram} alt="" className="h-10 w-auto" priority sizes="48px" />
       <span className="text-lg tracking-[-0.02em] whitespace-nowrap text-white">
-        {/* Destaca "Eco" em verde, como no logotipo oficial. */}
+        {/* Grafia do logotipo: "DC" em maiúsculas, "eco" em verde, demais palavras em minúsculas. */}
         {siteConfig.name.split(" ").map((word, index) => (
           <span key={`${word}-${index}`} className={word.toLowerCase() === "eco" ? "text-brand-400" : undefined}>
             {index > 0 && " "}
-            {word}
+            {index === 0 ? word : word.toLowerCase()}
           </span>
         ))}
       </span>

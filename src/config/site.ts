@@ -16,8 +16,8 @@ export const siteConfig = {
   name: "DC Eco Energy",
   /** Slogan oficial da marca. */
   slogan: "Gerando energia, carregando o futuro.",
-  /** Descrição curta da atuação (títulos e SEO). */
-  tagline: "Energia Solar & Mobilidade Elétrica",
+  /** Descrição curta da atuação (frase de apoio do logotipo). */
+  tagline: "Especializada em Sistemas Fotovoltaicos, CVE e Eletropostos",
   /** Razão social para rodapé e documentos. */
   legalName: "DC Eco Energy (razão social a definir)",
   /** CNPJ — placeholder. Nunca preencher com número fictício "realista". */

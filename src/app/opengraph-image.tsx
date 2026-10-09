@@ -31,7 +31,7 @@ export default async function OpengraphImage() {
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoSrc} width={520} height={286} alt="" />
+        <img src={logoSrc} width={440} height={302} alt="" />
         <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 480 }}>
           <span style={{ fontSize: 56, lineHeight: 1.05, letterSpacing: -2 }}>Energia inteligente para um futuro sustentável.</span>
           <span style={{ fontSize: 24, color: "#bdbdbd" }}>Energia solar · Carregadores veiculares · Eletropostos</span>
