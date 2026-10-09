@@ -35,39 +35,96 @@ export interface SolarCalculator {
   calculate(input: SolarSimulationInput): SolarSimulationResult;
 }
 
+/** Valores intermediários do cálculo — usados no resultado e na explicação "Como calculamos". */
+export interface SolarCalculationBreakdown {
+  tariff: number;
+  peakSunHours: number;
+  usedStateAverage: boolean;
+  monthlyConsumptionKwh: number;
+  minimumKwh: number;
+  compensableKwh: number;
+  kwhPerKwpMonth: number;
+  idealPowerKwp: number;
+  panelCount: number;
+  systemPowerKwp: number;
+  monthlyGenerationKwh: number;
+  offsetKwh: number;
+  billReduction: number;
+  monthlySavings: number;
+  annualSavings: number;
+  savings25Years: number;
+  requiredAreaM2: number;
+  co2AvoidedTonsPerYear: number;
+}
+
+export function computeSolarBreakdown(input: SolarSimulationInput, params: SolarParameters = DEFAULT_SOLAR_PARAMETERS): SolarCalculationBreakdown {
+  const tariff = params.defaultTariff;
+  const statePeakSunHours = params.peakSunHoursByState[input.state];
+  const peakSunHours = statePeakSunHours ?? FALLBACK_PEAK_SUN_HOURS;
+
+  const monthlyConsumptionKwh = input.monthlyBill / tariff;
+  const minimumKwh = params.minimumBilledKwh[input.propertyType];
+  const compensableKwh = Math.max(monthlyConsumptionKwh - minimumKwh, 0);
+
+  // Geração mensal de 1 kWp = HSP × 30 dias × PR
+  const kwhPerKwpMonth = peakSunHours * 30 * params.performanceRatio;
+  const idealPowerKwp = compensableKwh / kwhPerKwpMonth;
+
+  const panelCount = Math.max(Math.ceil((idealPowerKwp * 1000) / params.panelPowerWp), compensableKwh > 0 ? 1 : 0);
+  const systemPowerKwp = (panelCount * params.panelPowerWp) / 1000;
+  const monthlyGenerationKwh = systemPowerKwp * kwhPerKwpMonth;
+
+  const offsetKwh = Math.min(monthlyGenerationKwh, compensableKwh);
+  const rawReduction = monthlyConsumptionKwh > 0 ? (offsetKwh / monthlyConsumptionKwh) * (1 - params.nonCompensableShare) : 0;
+  const billReduction = Math.min(Math.max(rawReduction, 0), params.maxBillReduction);
+
+  const monthlySavings = input.monthlyBill * billReduction;
+  const annualSavings = monthlySavings * 12;
+
+  let savings25Years = 0;
+  for (let year = 0; year < params.analysisYears; year += 1) {
+    const tariffFactor = (1 + params.annualTariffIncrease) ** year;
+    const degradationFactor = (1 - params.annualPanelDegradation) ** year;
+    savings25Years += annualSavings * tariffFactor * degradationFactor;
+  }
+
+  return {
+    tariff,
+    peakSunHours,
+    usedStateAverage: statePeakSunHours !== undefined,
+    monthlyConsumptionKwh,
+    minimumKwh,
+    compensableKwh,
+    kwhPerKwpMonth,
+    idealPowerKwp,
+    panelCount,
+    systemPowerKwp,
+    monthlyGenerationKwh,
+    offsetKwh,
+    billReduction,
+    monthlySavings,
+    annualSavings,
+    savings25Years,
+    requiredAreaM2: panelCount * params.panelAreaM2,
+    co2AvoidedTonsPerYear: ((monthlyGenerationKwh * 12) / 1000) * params.gridEmissionFactor,
+  };
+}
+
 export function createReferenceSolarCalculator(params: SolarParameters = DEFAULT_SOLAR_PARAMETERS): SolarCalculator {
   return {
     calculate(input) {
-      const tariff = params.defaultTariff;
-      const peakSunHours = params.peakSunHoursByState[input.state] ?? FALLBACK_PEAK_SUN_HOURS;
-
-      const monthlyConsumptionKwh = input.monthlyBill / tariff;
-      const minimumKwh = params.minimumBilledKwh[input.propertyType];
-      const compensableKwh = Math.max(monthlyConsumptionKwh - minimumKwh, 0);
-
-      // Geração mensal de 1 kWp = HSP × 30 dias × PR
-      const kwhPerKwpMonth = peakSunHours * 30 * params.performanceRatio;
-      const idealPowerKwp = compensableKwh / kwhPerKwpMonth;
-
-      const panelCount = Math.max(Math.ceil((idealPowerKwp * 1000) / params.panelPowerWp), compensableKwh > 0 ? 1 : 0);
-      const systemPowerKwp = (panelCount * params.panelPowerWp) / 1000;
-      const monthlyGenerationKwh = systemPowerKwp * kwhPerKwpMonth;
-
-      const offsetKwh = Math.min(monthlyGenerationKwh, compensableKwh);
-      const rawReduction = monthlyConsumptionKwh > 0 ? (offsetKwh / monthlyConsumptionKwh) * (1 - params.nonCompensableShare) : 0;
-      const billReduction = Math.min(Math.max(rawReduction, 0), params.maxBillReduction);
-
-      const monthlySavings = input.monthlyBill * billReduction;
-      const annualSavings = monthlySavings * 12;
-
-      let savings25Years = 0;
-      for (let year = 0; year < params.analysisYears; year += 1) {
-        const tariffFactor = (1 + params.annualTariffIncrease) ** year;
-        const degradationFactor = (1 - params.annualPanelDegradation) ** year;
-        savings25Years += annualSavings * tariffFactor * degradationFactor;
-      }
-
-      const co2AvoidedTonsPerYear = ((monthlyGenerationKwh * 12) / 1000) * params.gridEmissionFactor;
+      const {
+        monthlyConsumptionKwh,
+        monthlySavings,
+        annualSavings,
+        savings25Years,
+        systemPowerKwp,
+        panelCount,
+        billReduction,
+        monthlyGenerationKwh,
+        co2AvoidedTonsPerYear,
+        peakSunHours,
+      } = computeSolarBreakdown(input, params);
 
       return {
         monthlyConsumptionKwh: round(monthlyConsumptionKwh, 0),

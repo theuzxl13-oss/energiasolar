@@ -4,10 +4,11 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BRAZILIAN_STATES } from "@/lib/brazil";
 import { SOLAR_SIMULATION_LIMITS, solarCalculator, type SolarSimulationInput, type SolarSimulationResult } from "@/lib/simulators/solar";
-import { formatCurrency, formatNumber, parseCurrencyInput } from "@/lib/utils";
+import { cn, formatCurrency, formatNumber, parseCurrencyInput } from "@/lib/utils";
 import { ChoiceGroup, SelectField, TextField } from "@/components/forms/fields";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { AnimatedNumber } from "@/components/ui/animated-number";
+import { EXAMPLE_SOLAR_INPUT, SolarMethodology } from "./solar-methodology";
 
 type PropertyOption = SolarSimulationInput["propertyType"];
 
@@ -27,6 +28,7 @@ export function SolarSimulator() {
   const [city, setCity] = useState("");
   const [errors, setErrors] = useState<Errors>({});
   const [result, setResult] = useState<{ input: SolarSimulationInput; output: SolarSimulationResult } | null>(null);
+  const [tab, setTab] = useState<"simulador" | "metodologia">("simulador");
 
   const stateOptions = useMemo(() => BRAZILIAN_STATES.map((item) => ({ value: item.uf, label: `${item.name} (${item.uf})` })), []);
 
@@ -58,7 +60,39 @@ export function SolarSimulator() {
       }).toString()}`
     : "/orcamento?servico=solar";
 
+  const tabs = [
+    { id: "simulador", label: "Simulador" },
+    { id: "metodologia", label: "Como calculamos" },
+  ] as const;
+
   return (
+    <div>
+      <div role="tablist" aria-label="Simulador solar" className="flex flex-wrap gap-x-8 gap-y-3 border-b border-white/10">
+        {tabs.map((item) => {
+          const active = tab === item.id;
+          return (
+            <button
+              key={item.id}
+              id={`solar-tab-${item.id}`}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              aria-controls={`solar-panel-${item.id}`}
+              onClick={() => setTab(item.id)}
+              className={cn("relative pb-4 text-xl tracking-[-0.03em] transition-colors sm:text-2xl", active ? "text-white" : "text-ash hover:text-white")}
+            >
+              {item.label}
+              {active && <motion.span layoutId="solar-tab" className="absolute -bottom-px left-0 h-px w-full bg-brand-400" />}
+            </button>
+          );
+        })}
+      </div>
+
+      <div id="solar-panel-metodologia" role="tabpanel" aria-labelledby="solar-tab-metodologia" hidden={tab !== "metodologia"} className="pt-12">
+        <SolarMethodology input={result?.input ?? EXAMPLE_SOLAR_INPUT} isExample={!result} />
+      </div>
+
+      <div id="solar-panel-simulador" role="tabpanel" aria-labelledby="solar-tab-simulador" hidden={tab !== "simulador"} className="pt-12">
     <div className="grid gap-16 lg:grid-cols-12 lg:gap-12">
       <form onSubmit={handleSubmit} noValidate className="space-y-9 lg:col-span-5">
         <TextField
@@ -100,9 +134,14 @@ export function SolarSimulator() {
           {result ? (
             <motion.div key="result" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <SolarResult result={result.output} />
-              <ButtonLink href={quoteHref} size="lg" variant="ghost" className="mt-6 text-white">
-                Receber orçamento completo
-              </ButtonLink>
+              <div className="mt-6 flex flex-wrap gap-x-8">
+                <ButtonLink href={quoteHref} size="lg" variant="ghost" className="text-white">
+                  Receber orçamento completo
+                </ButtonLink>
+                <Button variant="ghost" onClick={() => setTab("metodologia")}>
+                  Entenda como calculamos
+                </Button>
+              </div>
             </motion.div>
           ) : (
             <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="border-t border-white/10 pt-8">
@@ -111,6 +150,8 @@ export function SolarSimulator() {
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
+    </div>
       </div>
     </div>
   );
