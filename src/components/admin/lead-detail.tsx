@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Mail, MessageCircle, Phone } from "lucide-react";
+import { ArrowLeft, FileSignature, FileText, Mail, MessageCircle, Phone } from "lucide-react";
 import { useDemoLeads } from "@/hooks/use-demo-leads";
 import { CLIENT_TYPE_LABELS, PROPERTY_TYPE_LABELS, SERVICE_LABELS, SOURCE_LABELS, STATUS_LABELS } from "@/lib/labels";
 import { LEAD_STATUSES, type LeadStatus } from "@/types";
@@ -105,6 +105,12 @@ export function LeadDetail({ id }: { id: string }) {
               <a href={`tel:+55${phoneDigits}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
                 <Phone className="size-4" aria-hidden="true" /> Ligar
               </a>
+              <Link href={`/admin/orcamentos/editar?lead=${encodeURIComponent(lead.id)}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-night-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-night-800">
+                <FileText className="size-4" aria-hidden="true" /> Gerar orçamento
+              </Link>
+              <Link href={`/admin/contratos/editar?lead=${encodeURIComponent(lead.id)}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
+                <FileSignature className="size-4" aria-hidden="true" /> Gerar contrato
+              </Link>
               <a href={`mailto:${lead.email}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
                 <Mail className="size-4" aria-hidden="true" /> Enviar e-mail
               </a>

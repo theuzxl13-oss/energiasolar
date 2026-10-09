@@ -8,6 +8,7 @@ import { SERVICE_LABELS, STATUS_LABELS } from "@/lib/labels";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { LeadStatus } from "@/types";
 import { AdminPageHeader, DemoNote } from "./ui";
+import { QuotesTabs } from "./quotes/quotes-list";
 
 const COLUMNS: LeadStatus[] = ["em_contato", "orcamento_enviado", "negociacao", "fechado"];
 
@@ -18,6 +19,7 @@ export function QuotesBoard() {
   return (
     <div className="space-y-6">
       <AdminPageHeader title="Orçamentos" description="Pipeline comercial por etapa" />
+      <QuotesTabs />
       <DemoNote>Valores de proposta ilustrativos, gerados apenas para demonstrar o layout. Em produção, virão da tabela de propostas.</DemoNote>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {COLUMNS.map((status) => {
