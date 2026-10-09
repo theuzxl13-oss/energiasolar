@@ -57,7 +57,7 @@ export function FloatingActions() {
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Fale com um especialista pelo WhatsApp"
-          className="relative flex size-14 items-center justify-center rounded-full bg-[#25D366] text-white transition hover:scale-105"
+          className="relative flex size-14 items-center justify-center rounded-full bg-[#25D366] text-[#fff] transition hover:scale-105"
         >
           <span className="absolute inset-0 animate-pulse-ring rounded-full bg-[#25D366]" aria-hidden="true" />
           <WhatsAppIcon className="relative size-7" />

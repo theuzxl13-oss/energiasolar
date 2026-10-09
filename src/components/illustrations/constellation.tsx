@@ -130,18 +130,26 @@ function sampleTargets(shape: ConstellationShape, width: number, height: number,
   return points;
 }
 
-/** Clareia cores escuras para que as partículas continuem visíveis sobre o preto. */
-function particleColor(r: number, g: number, b: number) {
+/** Paleta das partículas soltas no tema claro (tons mais fortes para aparecer sobre o branco). */
+const PALETTE_LIGHT = ["#069854", "#069854", "#1d74f1", "#1d74f1", "#d97706", "#15846e", "#0891b2", "#4d7c0f", "#155dde", "#087945"];
+
+const isLightTheme = () => document.documentElement.dataset.theme === "light";
+
+/**
+ * Ajusta a cor do pixel do logo para o fundo atual:
+ * no escuro clareia tons apagados; no claro escurece tons muito claros.
+ */
+function particleColor(r: number, g: number, b: number, light: boolean) {
   const max = Math.max(r, g, b, 1);
-  const boost = max < 170 ? 170 / max : 1;
-  return `rgb(${Math.min(255, Math.round(r * boost))},${Math.min(255, Math.round(g * boost))},${Math.min(255, Math.round(b * boost))})`;
+  const factor = light ? (max > 190 ? 190 / max : 1) : max < 170 ? 170 / max : 1;
+  return `rgb(${Math.min(255, Math.round(r * factor))},${Math.min(255, Math.round(g * factor))},${Math.min(255, Math.round(b * factor))})`;
 }
 
 /**
  * Amostra pontos a partir de uma imagem (ex.: emblema da marca): a forma vem
  * da transparência e a cor de cada partícula vem do pixel correspondente.
  */
-function sampleImage(image: HTMLImageElement, width: number, height: number, count: number, rand: () => number) {
+function sampleImage(image: HTMLImageElement, width: number, height: number, count: number, rand: () => number, light: boolean) {
   const side = Math.min(width, height) * 0.9;
   const scale = Math.min(side / image.naturalWidth, side / image.naturalHeight);
   const drawW = image.naturalWidth * scale;
@@ -171,7 +179,7 @@ function sampleImage(image: HTMLImageElement, width: number, height: number, cou
       points.push([
         offsetX + ((px + rand()) / resW) * drawW,
         offsetY + ((py + rand()) / resH) * drawH,
-        particleColor(data[index]!, data[index + 1]!, data[index + 2]!),
+        particleColor(data[index]!, data[index + 1]!, data[index + 2]!, light),
       ]);
     }
   }
@@ -234,9 +242,11 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       const rand = mulberry32(shape.length * 7919 + 17);
+      const light = isLightTheme();
+      const palette = light ? PALETTE_LIGHT : PALETTE;
       const count = Math.round(Math.min(density, (width * height) / 110));
       const targets: [number, number, string | null][] = logoImage
-        ? sampleImage(logoImage, width, height, count, rand)
+        ? sampleImage(logoImage, width, height, count, rand, light)
         : sampleTargets(shape, width, height, count, rand).map(([x, y]) => [x, y, null]);
       const makeParticle = (tx: number, ty: number, isAmbient: boolean, color: string | null = null): Particle => ({
         tx,
@@ -246,7 +256,7 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
         size: isAmbient ? 2 + rand() * 3 : 1.6 + rand() * 3.4,
         rot: rand() * Math.PI * 2,
         spin: (rand() - 0.5) * 0.02,
-        color: color ?? PALETTE[Math.floor(rand() * PALETTE.length)]!,
+        color: color ?? palette[Math.floor(rand() * palette.length)]!,
         phase: rand() * Math.PI * 2,
         amp: isAmbient ? 6 + rand() * 14 : 0.6 + rand() * 2.4,
         alpha: isAmbient ? 0.18 + rand() * 0.3 : 0.55 + rand() * 0.45,
@@ -328,6 +338,10 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
     const resizeObserver = new ResizeObserver(() => build());
     resizeObserver.observe(canvas);
 
+    // Recria as partículas com as cores do tema quando o visitante troca claro/escuro.
+    const themeObserver = new MutationObserver(() => build());
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
     const intersectionObserver = new IntersectionObserver(([entry]) => {
       const wasVisible = visible;
       visible = Boolean(entry?.isIntersecting);
@@ -365,6 +379,7 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
       cancelled = true;
       cancelAnimationFrame(frame);
       resizeObserver.disconnect();
+      themeObserver.disconnect();
       intersectionObserver.disconnect();
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerdown", onMove);

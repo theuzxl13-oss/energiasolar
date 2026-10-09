@@ -10,6 +10,7 @@ import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { ButtonLink } from "@/components/ui/button";
 import { Logo } from "./logo";
+import { ThemeToggle } from "@/components/providers/theme";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -54,22 +55,26 @@ export function Navbar() {
           })}
         </ul>
 
-        <div className="hidden xl:block">
+        <div className="hidden items-center gap-3 xl:flex">
+          <ThemeToggle />
           <ButtonLink href="/orcamento" size="sm">
             Solicitar orçamento
           </ButtonLink>
         </div>
 
+        <div className="flex items-center gap-1 xl:hidden">
+          <ThemeToggle />
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
-          className="flex size-11 items-center justify-center text-white xl:hidden"
+          className="flex size-11 items-center justify-center text-white"
           aria-expanded={open}
           aria-controls="mobile-menu"
           aria-label={open ? "Fechar menu" : "Abrir menu"}
         >
           {open ? <X className="size-6" /> : <Menu className="size-6" />}
         </button>
+        </div>
       </nav>
 
       <AnimatePresence>

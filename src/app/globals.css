@@ -63,15 +63,36 @@
   }
 }
 
+/* ----------------------------------------------------------------------------
+ * TEMA CLARO (opcional — o padrão do site é o escuro)
+ * Ativado com data-theme="light" no <html> pelo botão de tema do site.
+ * Os componentes usam text-white / bg-black / border-white/10 etc.; aqui esses
+ * tokens são invertidos e as cores de destaque escurecidas para manter o contraste.
+ * O painel /admin não recebe o atributo e não é afetado.
+ * ------------------------------------------------------------------------- */
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --color-white: #0b1622;
+  --color-black: #ffffff;
+  --color-mist: #4a5563;
+  --color-ash: #6b7280;
+  --color-spark: #b45309;
+  --color-brand-200: #087945;
+  --color-brand-300: #087945;
+  --color-brand-400: #069854;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
-    background-color: #000000;
+    background-color: var(--color-black);
   }
   body {
-    background-color: #000000;
-    color: #ffffff;
+    background-color: var(--color-black);
+    color: var(--color-white);
     font-feature-settings: "ss01", "cv11";
     text-rendering: optimizeLegibility;
   }

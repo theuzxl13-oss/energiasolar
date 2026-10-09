@@ -2,15 +2,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { siteConfig } from "@/config/site";
 import { cn } from "@/lib/utils";
-// Versões do logo para fundo escuro (fundo transparente, partes escuras em branco).
-import monogram from "@/assets/brand/dc-emblem-dark.png";
-import fullLogo from "@/assets/brand/dc-eco-energy-dark.png";
+// Versões do logo: "dark" para o tema escuro (texto branco) e "light" para o tema claro (texto azul-marinho).
+import emblemDark from "@/assets/brand/dc-emblem-dark.png";
+import emblemLight from "@/assets/brand/dc-emblem-light.png";
+import fullLogoDark from "@/assets/brand/dc-eco-energy-dark.png";
+import fullLogoLight from "@/assets/brand/dc-eco-energy-light.png";
 
-/** Monograma "DC" + nome da marca — usado na navbar. */
+/** Emblema + nome da marca — usado na navbar. */
 export function Logo({ className }: { tone?: "dark" | "light"; className?: string }) {
   return (
     <Link href="/" className={cn("flex items-center gap-3", className)} aria-label={`${siteConfig.name} — página inicial`}>
-      <Image src={monogram} alt="" className="h-10 w-auto" priority sizes="48px" />
+      <Image src={emblemDark} alt="" className="h-10 w-auto light:hidden" priority sizes="48px" />
+      <Image src={emblemLight} alt="" className="hidden h-10 w-auto light:block" sizes="48px" />
       <span className="text-lg tracking-[-0.02em] whitespace-nowrap text-white">
         {/* Grafia do logotipo: "DC" em maiúsculas, "eco" em verde, demais palavras em minúsculas. */}
         {siteConfig.name.split(" ").map((word, index) => (
@@ -24,9 +27,16 @@ export function Logo({ className }: { tone?: "dark" | "light"; className?: strin
   );
 }
 
-/** Logo completo (monograma, nome e slogan) — usado no rodapé e em destaques. */
+/** Logo completo (emblema, nome e frase de apoio) — usado no rodapé. */
 export function FullLogo({ className }: { className?: string }) {
-  return <Image src={fullLogo} alt={`${siteConfig.name} — ${siteConfig.slogan}`} className={cn("h-auto w-full", className)} sizes="(min-width: 1024px) 360px, 70vw" />;
+  const alt = `${siteConfig.name} — ${siteConfig.tagline}`;
+  const sizes = "(min-width: 1024px) 360px, 70vw";
+  return (
+    <>
+      <Image src={fullLogoDark} alt={alt} className={cn("h-auto w-full light:hidden", className)} sizes={sizes} />
+      <Image src={fullLogoLight} alt={alt} className={cn("hidden h-auto w-full light:block", className)} sizes={sizes} />
+    </>
+  );
 }
 
-export { monogram as brandMonogram };
+export { emblemDark as brandMonogram };
