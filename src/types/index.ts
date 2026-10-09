@@ -167,3 +167,125 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
 }
+
+/* --------------------------- Orçamentos emitidos -------------------------- */
+
+export const QUOTE_STATUSES = ["rascunho", "enviado", "aprovado", "recusado"] as const;
+export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
+
+export interface QuoteItem {
+  id: string;
+  description: string;
+  quantity: number;
+  /** Unidade exibida (un, kWp, m, vb…). */
+  unit: string;
+  unitPrice: number;
+}
+
+/** Indicador de destaque no topo do orçamento (ex.: "Potência" → "6,6 kWp"). Vazio = oculto. */
+export interface QuoteHighlight {
+  label: string;
+  value: string;
+}
+
+export interface Quote {
+  id: string;
+  /** Número sequencial exibido no documento (ex.: 2026/0001). */
+  number: string;
+  title: string;
+  service: ServiceType;
+  status: QuoteStatus;
+  client: {
+    name: string;
+    /** CPF ou CNPJ (opcional no orçamento). */
+    document: string;
+    phone: string;
+    email: string;
+    address: string;
+    city: string;
+    state: string;
+  };
+  /** Endereço onde o serviço será executado. */
+  installAddress: string;
+  /** Texto de apresentação / descrição da solução. */
+  description: string;
+  highlights: QuoteHighlight[];
+  items: QuoteItem[];
+  /** Desconto em R$ sobre o subtotal. */
+  discount: number;
+  paymentTerms: string;
+  executionDays: number;
+  validityDays: number;
+  warranty: string;
+  notes: string;
+  issueDate: string;
+  leadId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* --------------------------------- Contratos ------------------------------ */
+
+export const CONTRACT_STATUSES = ["rascunho", "emitido", "assinado", "cancelado"] as const;
+export type ContractStatus = (typeof CONTRACT_STATUSES)[number];
+
+/** Pagamento único (obra/instalação) ou recorrente (manutenção, O&M, gestão de eletroposto). */
+export type ContractBilling = "unico" | "mensal";
+
+export interface ContractClause {
+  id: string;
+  /** Título da seção (ex.: "OBJETO", "PREÇO E FORMA DE PAGAMENTO"). */
+  title: string;
+  /**
+   * Texto da cláusula. Aceita variáveis entre chaves, substituídas na emissão
+   * (ver CONTRACT_VARIABLES). Parágrafos são separados por linha em branco.
+   */
+  body: string;
+}
+
+export interface ContractParty {
+  kind: "pf" | "pj";
+  name: string;
+  /** CPF ou CNPJ. */
+  document: string;
+  /** Representante legal (somente PJ). */
+  representative: string;
+  address: string;
+  city: string;
+  state: string;
+  email: string;
+  phone: string;
+}
+
+export interface Contract {
+  id: string;
+  /** Número sequencial exibido no documento (ex.: 2026/0001). */
+  number: string;
+  title: string;
+  service: ServiceType;
+  status: ContractStatus;
+  client: ContractParty;
+  /** Endereço onde o serviço será executado (instalação, obra). */
+  installAddress: string;
+  /** Descrição técnica: equipamentos, potência, quantidade de módulos/carregadores. */
+  scope: string;
+  billing: ContractBilling;
+  /** Valor total (pagamento único) ou mensal (recorrente). */
+  value: number;
+  paymentTerms: string;
+  /** Dia de vencimento (somente mensal). */
+  dueDay: number;
+  /** Prazo de execução em dias (pagamento único). */
+  executionDays: number;
+  /** Garantia do serviço de instalação, em meses. */
+  warrantyMonths: number;
+  /** Vigência em meses; `null` = prazo indeterminado (somente mensal). */
+  durationMonths: number | null;
+  startDate: string;
+  /** Cidade/UF do foro e da assinatura. */
+  forum: string;
+  clauses: ContractClause[];
+  leadId?: string;
+  createdAt: string;
+  updatedAt: string;
+}

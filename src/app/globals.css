@@ -175,3 +175,404 @@ html[data-theme="light"] {
     scroll-behavior: auto !important;
   }
 }
+
+/* ----------------------------------------------------------------------------
+ * DOCUMENTOS COM PAPEL TIMBRADO (orçamentos e contratos — rotas /visualizar)
+ * Na tela: folha A4 contínua. Na impressão ("Salvar como PDF"): cabeçalho,
+ * rodapé e marca d'água fixos repetem em cada página; <thead>/<tfoot> da
+ * tabela externa reservam o espaço deles para o texto não passar por baixo.
+ * ------------------------------------------------------------------------- */
+.letterhead-doc {
+  --doc-navy: #08121f;
+  --doc-ink: #1b2533;
+  --doc-muted: #6b7280;
+  --doc-line: #dde2e8;
+  --doc-header-h: 32mm;
+  --doc-footer-h: 16mm;
+  --doc-gutter: 18mm;
+  position: relative;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  overflow: hidden;
+  background: #fff;
+  color: var(--doc-ink);
+  font-size: 10pt;
+  line-height: 1.55;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.letterhead-doc__letterhead {
+  height: var(--doc-header-h);
+  background: var(--doc-navy);
+  border-bottom: 1.6mm solid transparent;
+  border-image: linear-gradient(90deg, var(--color-brand-500), var(--color-volt-500)) 1;
+  color: #fff;
+}
+.letterhead-doc__letterhead-inner {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  gap: 5mm;
+  padding: 0 var(--doc-gutter);
+}
+.letterhead-doc__emblem {
+  width: 19mm;
+  height: auto;
+}
+.letterhead-doc__brand {
+  display: block;
+  font-size: 19pt;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.letterhead-doc__brand-eco {
+  color: var(--color-brand-400);
+}
+.letterhead-doc__services {
+  display: block;
+  margin-top: 1.5mm;
+  font-size: 6.5pt;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #b9c3d0;
+}
+.letterhead-doc__sep {
+  margin: 0 0.6em;
+  color: var(--color-brand-400);
+}
+.letterhead-doc__contact {
+  display: flex;
+  flex-direction: column;
+  margin-left: auto;
+  text-align: right;
+  font-size: 7.5pt;
+  line-height: 1.5;
+  color: #b9c3d0;
+}
+.letterhead-doc__watermark {
+  position: absolute;
+  top: 80mm;
+  left: 50%;
+  width: 120mm;
+  transform: translateX(-50%);
+  opacity: 0.05;
+  filter: grayscale(1);
+  pointer-events: none;
+}
+.letterhead-doc__watermark img {
+  width: 100%;
+  height: auto;
+}
+.letterhead-doc__layout {
+  position: relative;
+  width: 100%;
+  border-collapse: collapse;
+}
+.letterhead-doc__header-space,
+.letterhead-doc__footer-space {
+  display: none;
+}
+.letterhead-doc__body {
+  padding: 9mm var(--doc-gutter) 8mm;
+}
+.letterhead-doc__body p {
+  margin: 0 0 2.4mm;
+  text-align: justify;
+  hyphens: auto;
+}
+.letterhead-doc__title {
+  margin: 0;
+  font-size: 16pt;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--doc-navy);
+}
+.letterhead-doc__heading {
+  margin: 7mm 0 2.5mm;
+  font-size: 9pt;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--doc-navy);
+  break-after: avoid;
+}
+.letterhead-doc__footer {
+  display: flex;
+  height: var(--doc-footer-h);
+  align-items: center;
+  justify-content: space-between;
+  gap: 6mm;
+  margin: 0 calc(var(--doc-gutter) - 2mm);
+  border-top: 0.3mm solid var(--doc-line);
+  font-size: 7.5pt;
+  color: var(--doc-muted);
+}
+.letterhead-doc__footer strong {
+  font-weight: 600;
+  color: var(--doc-navy);
+  text-transform: uppercase;
+}
+.letterhead-doc__footer .letterhead-doc__services {
+  margin: 0;
+  color: var(--doc-muted);
+}
+
+/* Conteúdo específico do orçamento */
+.quote-doc__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8mm;
+}
+.quote-doc__kicker {
+  margin: 0 0 1mm !important;
+  font-size: 8pt;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-brand-700);
+}
+.quote-doc__meta {
+  display: flex;
+  flex-shrink: 0;
+  gap: 5mm;
+  margin: 0;
+  border-radius: 2mm;
+  background: #f3f5f8;
+  padding: 2.5mm 4mm;
+}
+.quote-doc__meta dt,
+.quote-doc__client dt,
+.quote-doc__conditions dt,
+.quote-doc__highlights span {
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--doc-muted);
+}
+.quote-doc__meta dd {
+  margin: 0;
+  font-weight: 600;
+  color: var(--doc-navy);
+  white-space: nowrap;
+}
+.quote-doc__client {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5mm 8mm;
+  margin: 6mm 0 0;
+  border-top: 0.3mm solid var(--doc-line);
+  border-bottom: 0.3mm solid var(--doc-line);
+  padding: 4mm 0;
+}
+.quote-doc__client dd,
+.quote-doc__conditions dd {
+  margin: 0.3mm 0 0;
+}
+.quote-doc__wide {
+  grid-column: 1 / -1;
+}
+.quote-doc__highlights {
+  display: grid;
+  gap: 3mm;
+  margin-top: 5mm;
+  break-inside: avoid;
+}
+.quote-doc__highlights > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+  border-left: 1mm solid var(--color-brand-500);
+  border-radius: 1.5mm;
+  background: #f1f8f4;
+  padding: 3mm 4mm;
+}
+.quote-doc__highlights strong {
+  font-size: 13pt;
+  font-weight: 600;
+  color: var(--doc-navy);
+}
+.quote-doc__items {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+}
+.quote-doc__items th {
+  border-bottom: 0.4mm solid var(--doc-navy);
+  padding: 2mm 2mm;
+  text-align: left;
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--doc-navy);
+}
+.quote-doc__items td {
+  border-bottom: 0.3mm solid var(--doc-line);
+  padding: 2.2mm 2mm;
+  vertical-align: top;
+}
+.quote-doc__items tr {
+  break-inside: avoid;
+}
+.quote-doc__num {
+  text-align: right !important;
+  white-space: nowrap;
+}
+.quote-doc__muted {
+  color: var(--doc-muted);
+}
+.quote-doc__totals {
+  margin: 3mm 0 0 auto;
+  width: 82mm;
+  break-inside: avoid;
+}
+.quote-doc__totals > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 1mm 2mm;
+  font-size: 9pt;
+}
+.quote-doc__totals .quote-doc__grand-total {
+  margin-top: 1.5mm;
+  border-radius: 1.5mm;
+  background: var(--doc-navy);
+  padding: 2.5mm 3.5mm;
+  align-items: baseline;
+  color: #fff;
+  font-size: 9pt;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.quote-doc__grand-total strong {
+  font-size: 13pt;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.quote-doc__in-words {
+  margin: 1.5mm 0 0 !important;
+  font-size: 8pt;
+  color: var(--doc-muted);
+  text-align: right !important;
+}
+.quote-doc__conditions {
+  display: grid;
+  gap: 2.5mm;
+  margin: 0;
+}
+.quote-doc__keep {
+  break-inside: avoid;
+}
+.quote-doc__closing {
+  margin-top: 8mm !important;
+  border-top: 0.3mm solid var(--doc-line);
+  padding-top: 4mm;
+  font-size: 9pt;
+  color: var(--doc-muted);
+}
+
+/* Conteúdo específico do contrato */
+.contract-doc__subtitle {
+  margin-top: 1mm !important;
+  font-size: 8.5pt;
+  color: var(--doc-muted);
+}
+.contract-doc__section p {
+  orphans: 3;
+  widows: 3;
+}
+.contract-doc__closing {
+  margin-top: 8mm;
+  break-inside: avoid;
+}
+.contract-doc__place {
+  margin-top: 4mm !important;
+}
+.contract-doc__signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14mm;
+  margin-top: 22mm;
+}
+.contract-doc__signatures > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-top: 0.3mm solid #9aa3ae;
+  padding-top: 2mm;
+  text-align: center;
+  font-size: 8.5pt;
+  line-height: 1.45;
+  color: var(--doc-muted);
+}
+.contract-doc__signatures strong {
+  font-weight: 600;
+  color: var(--doc-navy);
+}
+
+@media screen {
+  .letterhead-doc {
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px -12px rgb(8 18 31 / 0.25);
+  }
+  .letterhead-doc__layout {
+    flex: 1;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .letterhead-doc {
+    width: auto;
+    min-height: 0;
+    overflow: visible;
+    box-shadow: none;
+  }
+  .letterhead-doc__letterhead,
+  .letterhead-doc__footer,
+  .letterhead-doc__watermark {
+    position: fixed;
+    z-index: 0;
+  }
+  .letterhead-doc__letterhead {
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+  .letterhead-doc__footer {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+  }
+  .letterhead-doc__watermark {
+    top: 50%;
+    transform: translate(-50%, -40%);
+  }
+  .letterhead-doc__layout {
+    z-index: 1;
+  }
+  .letterhead-doc__header-space {
+    display: block;
+    height: calc(var(--doc-header-h) + 1.6mm + 8mm);
+  }
+  .letterhead-doc__footer-space {
+    display: block;
+    height: calc(var(--doc-footer-h) + 4mm);
+  }
+  .letterhead-doc__body {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}

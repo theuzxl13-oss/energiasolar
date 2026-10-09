@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import {
   CircleHelp,
   ExternalLink,
+  FileSignature,
   FileText,
   FolderKanban,
   Inbox,
@@ -26,6 +27,7 @@ export const ADMIN_NAV = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Leads", href: "/admin/leads", icon: Inbox },
   { label: "Orçamentos", href: "/admin/orcamentos", icon: FileText },
+  { label: "Contratos", href: "/admin/contratos", icon: FileSignature },
   { label: "Projetos", href: "/admin/projetos", icon: FolderKanban },
   { label: "Serviços", href: "/admin/servicos", icon: Layers },
   { label: "Depoimentos", href: "/admin/depoimentos", icon: MessageSquareQuote },
@@ -81,7 +83,7 @@ export function AdminSidebar() {
   return (
     <>
       {/* Desktop */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-white/5 bg-night-950 p-4 lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-white/5 bg-night-950 p-4 lg:flex print:hidden">
         <Brand />
         <nav className="mt-8 flex-1 overflow-y-auto" aria-label="Menu administrativo">
           <NavLinks />
@@ -92,7 +94,7 @@ export function AdminSidebar() {
       </aside>
 
       {/* Mobile */}
-      <div className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/5 bg-night-950 px-4 lg:hidden">
+      <div className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/5 bg-night-950 px-4 lg:hidden print:hidden">
         <Brand />
         <button type="button" onClick={() => setOpen(true)} className="rounded-lg p-2 text-white hover:bg-white/10" aria-label="Abrir menu" aria-expanded={open}>
           <Menu className="size-6" />
