@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { siteConfig } from "@/config/site";
+import brandEmblem from "@/assets/brand/dc-emblem-dark.png";
 import { ButtonLink } from "@/components/ui/button";
 import { Container } from "@/components/ui/primitives";
 import { Constellation } from "@/components/illustrations/constellation";
@@ -11,13 +12,16 @@ const ease = [0.21, 0.6, 0.35, 1] as const;
 export function Hero() {
   return (
     <section className="relative isolate overflow-hidden pt-32 pb-20 sm:pt-36 lg:min-h-[100dvh] lg:pt-40 lg:pb-28">
-      {/* Constelação: à direita no desktop, atrás do texto no celular */}
-      <div className="absolute inset-0 -z-10 opacity-40 lg:inset-y-0 lg:right-[-6%] lg:left-auto lg:w-[58%] lg:opacity-100" aria-hidden="false">
-        <Constellation shape="bolt" density={1600} label="Constelação de partículas em forma de raio, representando energia" />
-      </div>
-
       <Container className="grid lg:grid-cols-12">
-        <div className="lg:col-span-8">
+        {/*
+          Emblema da marca em partículas (interage com cursor e toque).
+          Celular: bloco próprio abaixo dos botões. Desktop: metade direita do hero.
+        */}
+        <div className="relative order-2 mx-auto mt-14 aspect-square w-full max-w-md lg:absolute lg:top-8 lg:right-0 lg:mt-0 lg:aspect-auto lg:h-[min(100dvh,880px)] lg:w-[46%] lg:max-w-none">
+          <Constellation image={brandEmblem.src} density={2400} label="Emblema da DC Eco Energy formado por partículas de energia" />
+        </div>
+
+        <div className="order-1 lg:col-span-7">
           <motion.p initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease }} className="label-caps text-spark">
             {siteConfig.slogan}
           </motion.p>

@@ -128,6 +128,54 @@ function sampleTargets(shape: ConstellationShape, width: number, height: number,
   return points;
 }
 
+/** Clareia cores escuras para que as partículas continuem visíveis sobre o preto. */
+function particleColor(r: number, g: number, b: number) {
+  const max = Math.max(r, g, b, 1);
+  const boost = max < 170 ? 170 / max : 1;
+  return `rgb(${Math.min(255, Math.round(r * boost))},${Math.min(255, Math.round(g * boost))},${Math.min(255, Math.round(b * boost))})`;
+}
+
+/**
+ * Amostra pontos a partir de uma imagem (ex.: emblema da marca): a forma vem
+ * da transparência e a cor de cada partícula vem do pixel correspondente.
+ */
+function sampleImage(image: HTMLImageElement, width: number, height: number, count: number, rand: () => number) {
+  const side = Math.min(width, height) * 0.9;
+  const scale = Math.min(side / image.naturalWidth, side / image.naturalHeight);
+  const drawW = image.naturalWidth * scale;
+  const drawH = image.naturalHeight * scale;
+  const offsetX = (width - drawW) / 2;
+  const offsetY = (height - drawH) / 2;
+
+  const resW = Math.min(image.naturalWidth, 400);
+  const resH = Math.round((resW * image.naturalHeight) / image.naturalWidth);
+  const off = document.createElement("canvas");
+  off.width = resW;
+  off.height = resH;
+  const ctx = off.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return [];
+  ctx.drawImage(image, 0, 0, resW, resH);
+  const data = ctx.getImageData(0, 0, resW, resH).data;
+
+  const points: [number, number, string][] = [];
+  let tries = 0;
+  while (points.length < count && tries < count * 80) {
+    tries += 1;
+    const px = Math.floor(rand() * resW);
+    const py = Math.floor(rand() * resH);
+    const index = (py * resW + px) * 4;
+    const alpha = data[index + 3]! / 255;
+    if (alpha > 0.5 && rand() < alpha) {
+      points.push([
+        offsetX + ((px + rand()) / resW) * drawW,
+        offsetY + ((py + rand()) / resH) * drawH,
+        particleColor(data[index]!, data[index + 1]!, data[index + 2]!),
+      ]);
+    }
+  }
+  return points;
+}
+
 /** Gerador pseudoaleatório determinístico (mesma figura a cada carregamento). */
 function mulberry32(seed: number) {
   return () => {
@@ -147,9 +195,11 @@ interface ConstellationProps {
   /** Quantidade de partículas ambientes soltas. */
   ambient?: number;
   label?: string;
+  /** URL de uma imagem com fundo transparente (ex.: logo). Quando definida, substitui `shape` e usa as cores da imagem. */
+  image?: string;
 }
 
-export function Constellation({ shape = "bolt", className, density = 1400, ambient = 140, label }: ConstellationProps) {
+export function Constellation({ shape = "bolt", className, density = 1400, ambient = 140, label, image }: ConstellationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -165,12 +215,15 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
     let frame = 0;
     let visible = true;
     let start = performance.now();
+    let logoImage: HTMLImageElement | null = null;
+    let cancelled = false;
 
     function build() {
       const rect = canvas!.getBoundingClientRect();
       width = rect.width;
       height = rect.height;
       if (!width || !height) return;
+      if (image && !logoImage) return; // aguarda o carregamento da imagem
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas!.width = Math.round(width * dpr);
       canvas!.height = Math.round(height * dpr);
@@ -178,8 +231,10 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
 
       const rand = mulberry32(shape.length * 7919 + 17);
       const count = Math.round(Math.min(density, (width * height) / 110));
-      const targets = sampleTargets(shape, width, height, count, rand);
-      const makeParticle = (tx: number, ty: number, isAmbient: boolean): Particle => ({
+      const targets: [number, number, string | null][] = logoImage
+        ? sampleImage(logoImage, width, height, count, rand)
+        : sampleTargets(shape, width, height, count, rand).map(([x, y]) => [x, y, null]);
+      const makeParticle = (tx: number, ty: number, isAmbient: boolean, color: string | null = null): Particle => ({
         tx,
         ty,
         x: reduceMotion ? tx : width / 2 + (rand() - 0.5) * width * 1.4,
@@ -187,13 +242,13 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
         size: isAmbient ? 2 + rand() * 3 : 1.6 + rand() * 3.4,
         rot: rand() * Math.PI * 2,
         spin: (rand() - 0.5) * 0.02,
-        color: PALETTE[Math.floor(rand() * PALETTE.length)]!,
+        color: color ?? PALETTE[Math.floor(rand() * PALETTE.length)]!,
         phase: rand() * Math.PI * 2,
         amp: isAmbient ? 6 + rand() * 14 : 0.6 + rand() * 2.4,
         alpha: isAmbient ? 0.18 + rand() * 0.3 : 0.55 + rand() * 0.45,
       });
       particles = [
-        ...targets.map(([x, y]) => makeParticle(x, y, false)),
+        ...targets.map(([x, y, color]) => makeParticle(x, y, false, color)),
         ...Array.from({ length: Math.round((ambient * width) / 700) }, () => makeParticle(rand() * width, rand() * height, true)),
       ];
       start = performance.now();
@@ -247,9 +302,24 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
       if (visible && !reduceMotion) frame = requestAnimationFrame(loop);
     }
 
-    build();
-    if (reduceMotion) draw(performance.now());
-    else frame = requestAnimationFrame(loop);
+    function begin() {
+      build();
+      if (reduceMotion) draw(performance.now());
+      else frame = requestAnimationFrame(loop);
+    }
+
+    if (image) {
+      const img = new Image();
+      img.decoding = "async";
+      img.onload = () => {
+        if (cancelled) return;
+        logoImage = img;
+        begin();
+      };
+      img.src = image;
+    } else {
+      begin();
+    }
 
     const resizeObserver = new ResizeObserver(() => {
       build();
@@ -265,26 +335,41 @@ export function Constellation({ shape = "bolt", className, density = 1400, ambie
     });
     intersectionObserver.observe(canvas);
 
-    const onMove = (event: PointerEvent) => {
+    const setPointer = (clientX: number, clientY: number) => {
       const rect = canvas.getBoundingClientRect();
-      pointer.x = event.clientX - rect.left;
-      pointer.y = event.clientY - rect.top;
+      pointer.x = clientX - rect.left;
+      pointer.y = clientY - rect.top;
+    };
+    const onMove = (event: PointerEvent) => setPointer(event.clientX, event.clientY);
+    // Toque: acompanha o dedo mesmo enquanto a página rola (pointermove é cancelado na rolagem).
+    const onTouch = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (touch) setPointer(touch.clientX, touch.clientY);
     };
     const onLeave = () => {
       pointer.x = -9999;
       pointer.y = -9999;
     };
     window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerdown", onMove, { passive: true });
+    window.addEventListener("touchstart", onTouch, { passive: true });
+    window.addEventListener("touchmove", onTouch, { passive: true });
+    window.addEventListener("touchend", onLeave, { passive: true });
     document.addEventListener("pointerleave", onLeave);
 
     return () => {
+      cancelled = true;
       cancelAnimationFrame(frame);
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
       window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerdown", onMove);
+      window.removeEventListener("touchstart", onTouch);
+      window.removeEventListener("touchmove", onTouch);
+      window.removeEventListener("touchend", onLeave);
       document.removeEventListener("pointerleave", onLeave);
     };
-  }, [shape, density, ambient]);
+  }, [shape, density, ambient, image]);
 
   return <canvas ref={canvasRef} className={cn("block size-full", className)} role="img" aria-label={label ?? "Constelação de partículas de energia"} />;
 }
