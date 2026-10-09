@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { siteConfig } from "@/config/site";
 import brandEmblem from "@/assets/brand/dc-emblem-dark.png";
 import { ButtonLink } from "@/components/ui/button";
 import { Container } from "@/components/ui/primitives";
@@ -23,16 +22,16 @@ export function Hero() {
 
         <div className="order-1 lg:col-span-7">
           <motion.p initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease }} className="label-caps text-spark">
-            {siteConfig.slogan}
+            Energia inteligente para um futuro sustentável.
           </motion.p>
 
           <motion.h1
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.08, ease }}
-            className="text-display mt-7 text-white"
+            className="text-headline mt-7 text-white"
           >
-            Energia inteligente para um futuro sustentável.
+            Especializadas em Sistemas Fotovoltaicos, CVE e Eletropostos.
           </motion.h1>
 
           <motion.div
