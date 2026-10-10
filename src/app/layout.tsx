@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import { siteConfig } from "@/config/site";
 import { SEO_KEYWORDS } from "@/lib/seo";
 import { MotionProvider } from "@/components/providers/motion-provider";
+/**
+ * Fonte Inter (variável) hospedada no próprio projeto, via @fontsource —
+ * o build não depende do Google Fonts e o carregamento fica mais rápido.
+ */
+import "@fontsource-variable/inter";
 import "./globals.css";
-
-/** Fonte única (pesos 200, 400 e 600): hierarquia por escala, não por peso. */
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap", weight: ["200", "400", "600"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -46,7 +47,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     // suppressHydrationWarning: o tema salvo (data-theme) é aplicado por script antes da hidratação.
-    <html lang="pt-BR" className={inter.variable} suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning>
       <body className="min-h-dvh font-sans antialiased">
         <MotionProvider>{children}</MotionProvider>
       </body>
