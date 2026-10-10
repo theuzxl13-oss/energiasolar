@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ExternalLink, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
+import { Check, ExternalLink, Pencil, Plus, RotateCcw, Save, Trash2, X } from "lucide-react";
 import { mainNavigation } from "@/config/navigation";
 import { useContentReady, useSiteSettings } from "@/hooks/use-site-content";
 import { whatsappUrl, type SiteSettings } from "@/lib/site-content";
@@ -57,7 +57,20 @@ function ContentForm({
 }) {
   const [draft, setDraft] = useState<SiteSettings>(() => structuredClone(initial));
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
+  // Começa só para leitura; os campos liberam ao clicar em "Editar" (evita alterações sem querer).
+  const [editing, setEditing] = useState(false);
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
+
+  function startEditing() {
+    setEditing(true);
+    setStatus("idle");
+  }
+
+  function cancel() {
+    if (dirty && !window.confirm("Descartar as alterações que ainda não foram salvas?")) return;
+    setDraft(structuredClone(initial));
+    setEditing(false);
+  }
 
   function update(patch: Partial<SiteSettings>) {
     setDraft((current) => ({ ...current, ...patch }));
@@ -74,7 +87,9 @@ function ContentForm({
       stats: draft.stats.filter((stat) => stat.label.trim()),
     };
     setDraft(cleaned);
-    setStatus(onSave(cleaned) ? "saved" : "error");
+    const ok = onSave(cleaned);
+    setStatus(ok ? "saved" : "error");
+    if (ok) setEditing(false);
   }
 
   function restore() {
@@ -91,18 +106,28 @@ function ContentForm({
         title="Conteúdo do Site"
         description="Dados da empresa, contatos, horários, redes sociais e indicadores"
         actions={
-          <>
-            {customized && (
-              <button type="button" onClick={restore} className={buttonGhost}>
-                <RotateCcw className="size-4" aria-hidden="true" /> Restaurar padrão
+          editing ? (
+            <>
+              {customized && (
+                <button type="button" onClick={restore} className={buttonGhost}>
+                  <RotateCcw className="size-4" aria-hidden="true" /> Restaurar padrão
+                </button>
+              )}
+              <button type="button" onClick={cancel} className={buttonGhost}>
+                <X className="size-4" aria-hidden="true" /> Cancelar
               </button>
-            )}
-            <button type="submit" className={buttonPrimary}>
-              <Save className="size-4" aria-hidden="true" /> Salvar alterações
+              <button type="submit" className={buttonPrimary}>
+                <Save className="size-4" aria-hidden="true" /> Salvar alterações
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={startEditing} className={buttonPrimary}>
+              <Pencil className="size-4" aria-hidden="true" /> Editar
             </button>
-          </>
+          )
         }
       />
+      {!editing && <p className="text-sm text-slate-500">Os dados estão protegidos contra alterações. Clique em <strong>Editar</strong> para modificar.</p>}
       <DemoNote>
         Modo demonstração: as alterações ficam salvas <strong>neste navegador</strong> e aparecem no site (rodapé, contato, botões de WhatsApp, política
         de privacidade, indicadores) e nos orçamentos e contratos. Outras pessoas só verão quando o banco de dados for conectado.
@@ -127,6 +152,10 @@ function ContentForm({
         </p>
       )}
 
+      <fieldset
+        disabled={!editing}
+        className="group min-w-0 space-y-6 [&_:is(input,textarea,select):disabled]:cursor-default [&_:is(input,textarea,select):disabled]:bg-slate-50 [&_:is(input,textarea,select):disabled]:text-night-900"
+      >
       <div className="grid gap-6 xl:grid-cols-2">
         <Panel title="Dados da empresa" description="Usados no rodapé, na política de privacidade e nos contratos.">
           <div className="grid gap-4">
@@ -222,7 +251,7 @@ function ContentForm({
               <button
                 type="button"
                 onClick={() => update({ businessHours: [...draft.businessHours, { label: "", value: "" }] })}
-                className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 group-disabled:hidden hover:underline"
               >
                 <Plus className="size-4" aria-hidden="true" /> Adicionar
               </button>
@@ -252,7 +281,7 @@ function ContentForm({
                   <button
                     type="button"
                     onClick={() => update({ businessHours: draft.businessHours.filter((_, i) => i !== index) })}
-                    className="shrink-0 rounded-lg p-2 text-rose-500 hover:bg-rose-50"
+                    className="shrink-0 rounded-lg p-2 text-rose-500 group-disabled:hidden hover:bg-rose-50"
                     aria-label="Remover horário"
                   >
                     <Trash2 className="size-4" />
@@ -288,7 +317,7 @@ function ContentForm({
             onClick={() =>
               update({ stats: [...draft.stats, { id: `stat-${Date.now()}`, value: 0, prefix: "+", suffix: "", label: "", icon: "chart", isDemo: true }] })
             }
-            className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 group-disabled:hidden hover:underline"
           >
             <Plus className="size-4" aria-hidden="true" /> Adicionar
           </button>
@@ -329,7 +358,7 @@ function ContentForm({
                 <button
                   type="button"
                   onClick={() => update({ stats: draft.stats.filter((_, i) => i !== index) })}
-                  className="rounded-lg p-2 text-rose-500 hover:bg-rose-100"
+                  className="rounded-lg p-2 text-rose-500 group-disabled:hidden hover:bg-rose-100"
                   aria-label="Remover indicador"
                 >
                   <Trash2 className="size-4" />
@@ -350,12 +379,19 @@ function ContentForm({
         </ul>
       </Panel>
 
-      <div className="sticky bottom-4 flex items-center justify-end gap-3">
-        {dirty && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">Alterações não salvas</span>}
-        <button type="submit" className={`${buttonPrimary} shadow-lg`}>
-          <Save className="size-4" aria-hidden="true" /> Salvar alterações
-        </button>
-      </div>
+      </fieldset>
+
+      {editing && (
+        <div className="sticky bottom-4 flex items-center justify-end gap-3">
+          {dirty && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">Alterações não salvas</span>}
+          <button type="button" onClick={cancel} className={`${buttonGhost} bg-white shadow-lg`}>
+            <X className="size-4" aria-hidden="true" /> Cancelar
+          </button>
+          <button type="submit" className={`${buttonPrimary} shadow-lg`}>
+            <Save className="size-4" aria-hidden="true" /> Salvar alterações
+          </button>
+        </div>
+      )}
     </form>
   );
 }
