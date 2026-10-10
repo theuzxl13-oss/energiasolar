@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import {
   CircleHelp,
   ExternalLink,
+  FileSignature,
   FileText,
   FolderKanban,
   Inbox,
@@ -26,6 +27,7 @@ export const ADMIN_NAV = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Leads", href: "/admin/leads", icon: Inbox },
   { label: "Orçamentos", href: "/admin/orcamentos", icon: FileText },
+  { label: "Contratos", href: "/admin/contratos", icon: FileSignature },
   { label: "Projetos", href: "/admin/projetos", icon: FolderKanban },
   { label: "Serviços", href: "/admin/servicos", icon: Layers },
   { label: "Depoimentos", href: "/admin/depoimentos", icon: MessageSquareQuote },

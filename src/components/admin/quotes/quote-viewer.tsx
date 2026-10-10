@@ -1,46 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, MessageCircle, Pencil, Printer } from "lucide-react";
+import { ArrowLeft, FileSignature, MessageCircle, Pencil, Printer } from "lucide-react";
 import { useQuotes } from "@/hooks/use-quotes";
 import { siteConfig } from "@/config/site";
 import { QUOTE_STATUSES, QUOTE_STATUS_LABELS, quoteTotals, type QuoteStatus } from "@/lib/quotes";
 import { formatCurrency, onlyDigits } from "@/lib/utils";
 import { QuoteDocument } from "./quote-document";
-
-/** Largura de uma folha A4 (210 mm) em pixels CSS. */
-const A4_WIDTH_PX = 794;
-
-/**
- * Reduz a visualização das folhas A4 para caber em telas estreitas.
- * Afeta só a tela — na impressão/PDF o zoom volta a 100%.
- */
-function FitToWidth({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const observer = new ResizeObserver(([entry]) => {
-      const width = entry?.contentRect.width ?? A4_WIDTH_PX;
-      setScale(Math.min(1, width / (A4_WIDTH_PX + 8)));
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div ref={ref} className="pb-6 print:pb-0">
-      {/* "!" = !important, para vencer o zoom inline na impressão */}
-      <div className="print:[zoom:1]!" style={{ zoom: scale }}>
-        {children}
-      </div>
-    </div>
-  );
-}
+import { FitToWidth } from "../documents/fit-to-width";
 
 /** Visualização do orçamento com ações: imprimir/baixar PDF, WhatsApp, editar e status. */
 export function QuoteViewer() {
@@ -106,6 +74,12 @@ export function QuoteViewer() {
                 ))}
               </select>
             </label>
+            <Link
+              href={`/admin/contratos/novo?orcamento=${encodeURIComponent(quote.id)}`}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+            >
+              <FileSignature className="size-4" aria-hidden="true" /> Gerar contrato
+            </Link>
             <Link
               href={`/admin/orcamentos/editar?id=${encodeURIComponent(quote.id)}`}
               className="inline-flex h-10 items-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"

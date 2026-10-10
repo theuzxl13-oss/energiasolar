@@ -112,19 +112,6 @@ export function validityText(issueDate: string, validUntil: string) {
   return `${days} dias (até ${formatIsoDate(validUntil)}).`;
 }
 
-/* ------------------------------- Numeração --------------------------------- */
-
-/** Próximo número no formato AAAA/NNNN, reiniciando a sequência a cada ano. */
-export function nextQuoteNumber(existing: string[], year = new Date().getFullYear()) {
-  const prefix = `${year}/`;
-  const max = existing
-    .filter((number) => number.startsWith(prefix))
-    .map((number) => Number.parseInt(number.slice(prefix.length), 10))
-    .filter(Number.isFinite)
-    .reduce((acc, value) => Math.max(acc, value), 0);
-  return `${prefix}${String(max + 1).padStart(4, "0")}`;
-}
-
 /* ----------------------------- Valor por extenso ---------------------------- */
 
 const UNITS = ["zero", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez", "onze", "doze", "treze", "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"];
