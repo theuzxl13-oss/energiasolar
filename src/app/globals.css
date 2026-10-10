@@ -167,6 +167,26 @@ html[data-theme="light"] {
   mask-image: radial-gradient(ellipse at center, black 40%, transparent 75%);
 }
 
+/* Impressão / "Salvar como PDF" dos orçamentos: A4 sem margens, uma página por folha. */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  html,
+  body {
+    background: #ffffff !important;
+  }
+  .quote-page {
+    break-after: page;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .quote-page:last-child {
+    break-after: auto;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

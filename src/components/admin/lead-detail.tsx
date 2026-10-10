@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Mail, MessageCircle, Phone } from "lucide-react";
+import { ArrowLeft, FilePlus2, Mail, MessageCircle, Phone } from "lucide-react";
 import { useDemoLeads } from "@/hooks/use-demo-leads";
 import { CLIENT_TYPE_LABELS, PROPERTY_TYPE_LABELS, SERVICE_LABELS, SOURCE_LABELS, STATUS_LABELS } from "@/lib/labels";
 import { LEAD_STATUSES, type LeadStatus } from "@/types";
@@ -99,6 +99,12 @@ export function LeadDetail({ id }: { id: string }) {
           </Panel>
           <Panel title="Ações rápidas">
             <div className="grid gap-2">
+              <Link
+                href={`/admin/orcamentos/novo?lead=${encodeURIComponent(lead.id)}`}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
+              >
+                <FilePlus2 className="size-4" aria-hidden="true" /> Criar orçamento
+              </Link>
               <a href={`https://wa.me/55${phoneDigits}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1fbd5a]">
                 <MessageCircle className="size-4" aria-hidden="true" /> Abrir WhatsApp
               </a>

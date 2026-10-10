@@ -1,7 +1,7 @@
-import { QuotesBoard } from "@/components/admin/quotes-board";
+import { QuotesList } from "@/components/admin/quotes/quotes-list";
 
 export const metadata = { title: "Orçamentos" };
 
 export default function AdminOrcamentosPage() {
-  return <QuotesBoard />;
+  return <QuotesList />;
 }

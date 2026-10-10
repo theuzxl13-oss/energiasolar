@@ -50,19 +50,3 @@ export function dashboardKpis(leads: Lead[]) {
     conversao: leads.length ? Math.round((closed / leads.length) * 100) : 0,
   };
 }
-
-/** Valor de proposta ILUSTRATIVO para a tela de orçamentos do modo demonstração. */
-export function demoQuoteValue(lead: Lead) {
-  const seed = [...lead.id].reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const base: Record<ServiceType, number> = {
-    energia_solar: 18000,
-    carregador_residencial: 6000,
-    carregador_empresarial: 25000,
-    condominio: 40000,
-    eletroposto: 180000,
-    frota: 120000,
-    manutencao: 1500,
-    outro: 5000,
-  };
-  return Math.round((base[lead.service] * (0.7 + (seed % 60) / 100)) / 100) * 100;
-}
