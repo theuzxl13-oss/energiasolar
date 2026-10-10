@@ -11,7 +11,7 @@ import { BRAZILIAN_STATES } from "@/lib/brazil";
 import { CLIENT_TYPE_LABELS, PROPERTY_TYPE_LABELS, SERVICE_LABELS } from "@/lib/labels";
 import { CLIENT_TYPES, PROPERTY_TYPES, SERVICE_TYPES, type LeadSource } from "@/types";
 import { maskPhone } from "@/lib/utils";
-import { buildWhatsAppUrl } from "@/lib/whatsapp";
+import { useWhatsAppUrl } from "@/hooks/use-site-content";
 import { ApiError, submitLead } from "@/services/api-client";
 import { saveDemoLead } from "@/hooks/use-demo-leads";
 import { SelectField, TextField, TextareaField } from "./fields";
@@ -34,6 +34,7 @@ export interface QuoteFormDefaults {
 export function QuoteForm({ defaults = {}, source = "orcamento" }: { defaults?: QuoteFormDefaults; source?: LeadSource }) {
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [serverError, setServerError] = useState<string | null>(null);
+  const whatsappHref = useWhatsAppUrl("Olá! Acabei de enviar uma solicitação de orçamento pelo site.");
 
   const {
     register,
@@ -96,7 +97,7 @@ export function QuoteForm({ defaults = {}, source = "orcamento" }: { defaults?: 
         <h2 className="text-headline mt-8 text-white">Solicitação enviada com sucesso!</h2>
         <p className="text-lead mt-6 max-w-md text-mist">Em breve nossa equipe entrará em contato.</p>
         <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-3">
-          <ButtonLink href={buildWhatsAppUrl("Olá! Acabei de enviar uma solicitação de orçamento pelo site.")} external variant="whatsapp">
+          <ButtonLink href={whatsappHref} external variant="whatsapp">
             Agilizar pelo WhatsApp
           </ButtonLink>
           <Button variant="ghost" onClick={() => setStatus("idle")}>

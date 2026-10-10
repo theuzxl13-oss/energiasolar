@@ -2,16 +2,17 @@ import { faqItems } from "@/data/faq";
 import type { FaqItem } from "@/types";
 import { Container, Eyebrow, Section } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
-import { Accordion } from "@/components/ui/accordion";
 import { FaqJsonLd } from "@/components/seo/json-ld";
+import { FaqList } from "./faq-list";
 
 interface FaqSectionProps {
-  items?: FaqItem[];
+  /** Mostra só as perguntas desta categoria (sem categoria = todas). */
+  category?: FaqItem["category"];
   title?: string;
   tone?: "light" | "muted";
 }
 
-export function FaqSection({ items = faqItems, title = "Perguntas frequentes." }: FaqSectionProps) {
+export function FaqSection({ category, title = "Perguntas frequentes." }: FaqSectionProps) {
   return (
     <Section id="faq">
       <Container className="grid gap-14 lg:grid-cols-12 lg:gap-12">
@@ -24,10 +25,10 @@ export function FaqSection({ items = faqItems, title = "Perguntas frequentes." }
           </ButtonLink>
         </div>
         <div className="lg:col-span-7">
-          <Accordion items={items.map((item) => ({ id: item.id, title: item.question, content: item.answer }))} />
+          <FaqList category={category} />
         </div>
       </Container>
-      <FaqJsonLd items={items} />
+      <FaqJsonLd items={category ? faqItems.filter((item) => item.category === category) : faqItems} />
     </Section>
   );
 }

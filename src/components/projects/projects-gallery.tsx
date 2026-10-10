@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PROJECT_CATEGORY_LABELS } from "@/data/projects";
-import type { Project, ProjectCategory } from "@/types";
+import type { ProjectCategory } from "@/types";
+import { useProjects } from "@/hooks/use-site-content";
+import { DemoBadge } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 import { ProjectCard } from "./project-card";
 
@@ -14,12 +16,19 @@ const FILTERS: { value: Filter; label: string }[] = [
   ...(Object.keys(PROJECT_CATEGORY_LABELS) as ProjectCategory[]).map((value) => ({ value, label: PROJECT_CATEGORY_LABELS[value] })),
 ];
 
-export function ProjectsGallery({ projects }: { projects: Project[] }) {
+export function ProjectsGallery() {
+  const { items: projects } = useProjects();
   const [filter, setFilter] = useState<Filter>("todos");
   const visible = filter === "todos" ? projects : projects.filter((project) => project.category === filter);
 
   return (
     <div>
+      {projects.some((project) => project.isDemo) && (
+        <p className="mb-12 flex max-w-2xl flex-wrap items-center gap-3 text-sm font-extralight text-mist">
+          <DemoBadge label="Projetos demonstrativos" />
+          Exemplos ilustrativos para apresentação, que serão substituídos por casos reais da empresa.
+        </p>
+      )}
       <div role="tablist" aria-label="Filtrar projetos por categoria" className="flex flex-wrap gap-x-8 gap-y-3 border-b border-white/10 pb-6">
         {FILTERS.map((item) => {
           const count = item.value === "todos" ? projects.length : projects.filter((project) => project.category === item.value).length;

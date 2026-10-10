@@ -1,18 +1,27 @@
-import { projects } from "@/data/projects";
+"use client";
+
+import { featuredProjects } from "@/data/projects";
+import { useProjects } from "@/hooks/use-site-content";
 import { Container, Section, SectionHeading } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
 import { ProjectCard } from "@/components/projects/project-card";
 
 export function ProjectsPreview() {
-  const featured = [projects[0], projects[3], projects[5]].filter((project) => project !== undefined);
+  const { items } = useProjects();
+  const featured = featuredProjects(items);
+  if (!featured.length) return null;
   return (
     <Section id="projetos">
       <Container>
         <SectionHeading
           eyebrow="Portfólio"
           title="Projetos que geram resultado."
-          description="Exemplos de soluções em energia solar, recarga veicular e eletropostos (projetos demonstrativos)."
+          description={
+            featured.some((project) => project.isDemo)
+              ? "Exemplos de soluções em energia solar, recarga veicular e eletropostos (projetos demonstrativos)."
+              : "Exemplos de soluções em energia solar, recarga veicular e eletropostos."
+          }
         />
         <ul className="mt-20 grid gap-x-10 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
           {featured.map((project, index) => (

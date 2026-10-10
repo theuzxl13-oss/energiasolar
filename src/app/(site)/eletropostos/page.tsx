@@ -1,7 +1,6 @@
 import { buildMetadata } from "@/lib/seo";
 import { eletropostoApplications, eletropostoBenefits, eletropostoServices } from "@/data/solutions";
 import { eletropostoSteps } from "@/data/process";
-import { faqItems } from "@/data/faq";
 import { Container, Section, SectionHeading } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
@@ -105,7 +104,7 @@ export default function EletropostosPage() {
         </Container>
       </Section>
 
-      <FaqSection items={faqItems.filter((item) => item.category === "eletropostos")} title="Dúvidas sobre eletropostos." />
+      <FaqSection category="eletropostos" title="Dúvidas sobre eletropostos." />
       <CtaBanner
         title="Seu estabelecimento pronto para a mobilidade elétrica."
         description="Agende uma análise técnica do local e receba um estudo com a solução recomendada."

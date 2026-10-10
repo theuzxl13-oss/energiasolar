@@ -93,9 +93,11 @@ export interface Project {
   highlights: string[];
   /** Variante da ilustração vetorial usada como imagem do projeto. */
   art: "solar-home" | "solar-commercial" | "solar-industrial" | "wallbox" | "condo" | "station";
-  /** Caminho opcional para foto real em /public. Tem prioridade sobre a ilustração. */
+  /** Foto opcional (caminho em /public ou imagem enviada pelo painel). Tem prioridade sobre a ilustração. */
   image?: string;
   isDemo: boolean;
+  /** Exibir na prévia de projetos da página inicial. */
+  featured?: boolean;
 }
 
 export interface Testimonial {

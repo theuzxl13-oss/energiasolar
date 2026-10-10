@@ -1,6 +1,7 @@
 import { buildMetadata } from "@/lib/seo";
 import { siteConfig } from "@/config/site";
 import { Container, Section } from "@/components/ui/primitives";
+import { CompanyText } from "@/components/ui/site-content";
 import { PageHero } from "@/components/sections/page-hero";
 
 export const metadata = buildMetadata({
@@ -31,8 +32,8 @@ export default function PrivacidadePage() {
             <section>
               <h2>1. Quem somos</h2>
               <p className="mt-2">
-                {siteConfig.legalName}, inscrita no CNPJ {siteConfig.cnpj}, é a controladora dos dados pessoais coletados por este site. Contato:{" "}
-                {siteConfig.contact.email}.
+                <CompanyText field="legalName" />, inscrita no CNPJ <CompanyText field="cnpj" />, é a controladora dos dados pessoais coletados por
+                este site. Contato: <CompanyText field="email" />.
               </p>
             </section>
             <section>
@@ -67,7 +68,7 @@ export default function PrivacidadePage() {
               <h2>6. Seus direitos</h2>
               <p className="mt-2">
                 Você pode solicitar confirmação, acesso, correção, anonimização, portabilidade ou eliminação dos seus dados, além de revogar o
-                consentimento, pelo e-mail {siteConfig.contact.email}.
+                consentimento, pelo e-mail <CompanyText field="email" />.
               </p>
             </section>
             <section>

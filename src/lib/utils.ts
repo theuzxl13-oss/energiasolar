@@ -59,6 +59,15 @@ export function parseCurrencyInput(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/** Nova lista com o item `index` trocado de lugar com o vizinho (`-1` sobe, `1` desce). */
+export function moveItem<T>(list: T[], index: number, direction: -1 | 1): T[] {
+  const target = index + direction;
+  if (target < 0 || target >= list.length) return list;
+  const next = [...list];
+  next.splice(target, 0, ...next.splice(index, 1));
+  return next;
+}
+
 export function generateId(prefix = "id") {
   const random =
     typeof crypto !== "undefined" && "randomUUID" in crypto

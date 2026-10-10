@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { Clock, FileText, ShieldCheck, Sparkles } from "lucide-react";
 import { buildMetadata } from "@/lib/seo";
-import { siteConfig } from "@/config/site";
+import { CompanyContactLink } from "@/components/ui/site-content";
 import { Container, Section } from "@/components/ui/primitives";
 import { PageHero } from "@/components/sections/page-hero";
 import { QuoteForm } from "@/components/forms/quote-form";
@@ -51,10 +51,10 @@ export default function OrcamentoPage() {
             <div className="border-t border-white/10 pt-6 text-sm font-extralight text-mist">
               <p className="label-caps text-spark">Prefere falar agora?</p>
               <p className="mt-3">
-                Telefone: <a href={`tel:${siteConfig.contact.phoneHref}`} className="text-white hover:text-brand-300">{siteConfig.contact.phoneDisplay}</a>
+                Telefone: <CompanyContactLink kind="phone" className="text-white hover:text-brand-300" />
               </p>
               <p className="mt-1">
-                E-mail: <a href={`mailto:${siteConfig.contact.email}`} className="break-all text-white hover:text-brand-300">{siteConfig.contact.email}</a>
+                E-mail: <CompanyContactLink kind="email" className="break-all text-white hover:text-brand-300" />
               </p>
             </div>
           </aside>

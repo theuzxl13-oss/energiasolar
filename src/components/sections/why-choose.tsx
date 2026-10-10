@@ -1,5 +1,7 @@
-import { companyStats } from "@/config/stats";
+"use client";
+
 import { siteConfig } from "@/config/site";
+import { useSiteSettings } from "@/hooks/use-site-content";
 import { Container, DemoBadge, Section, SectionHeading } from "@/components/ui/primitives";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Reveal } from "@/components/ui/reveal";
@@ -15,6 +17,7 @@ const differentials: FeatureItem[] = [
 ];
 
 export function WhyChooseSection() {
+  const companyStats = useSiteSettings().settings.stats;
   const hasDemoStats = companyStats.some((stat) => stat.isDemo);
   return (
     <Section id="por-que-escolher">

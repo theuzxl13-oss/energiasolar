@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowDown, ArrowLeft, ArrowUp, Eye, FileText, ListPlus, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
-import { siteConfig } from "@/config/site";
 import { useContracts } from "@/hooks/use-contracts";
+import { useSiteSettings } from "@/hooks/use-site-content";
+import { companyAddressLine } from "@/lib/site-content";
 import { useQuotes } from "@/hooks/use-quotes";
 import {
   CONTRACT_SERVICES,
@@ -16,7 +17,6 @@ import {
   DEFAULT_CONTRACT_TYPES,
   DEFAULT_OBJECTS,
   applyQuoteToContract,
-  companyAddress,
   defaultContractSections,
   emptyContract,
   type Contract,
@@ -44,6 +44,7 @@ export function ContractEditor({ contractId }: { contractId?: string }) {
   const params = useSearchParams();
   const { contracts, ready, saveContract, getNextNumber } = useContracts();
   const { quotes } = useQuotes();
+  const company = useSiteSettings().settings;
   const [contract, setContract] = useState<Contract | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -246,19 +247,27 @@ export function ContractEditor({ contractId }: { contractId?: string }) {
           </Panel>
 
           {/* Partes */}
-          <Panel title="Contratada" description="Dados da empresa — alterados em src/config/site.ts.">
+          <Panel
+            title="Contratada"
+            description="Dados da empresa — alterados em Conteúdo do Site."
+            actions={
+              <Link href="/admin/conteudo" className="text-xs font-semibold text-brand-700 hover:underline">
+                Editar dados
+              </Link>
+            }
+          >
             <dl className="grid gap-2 text-sm sm:grid-cols-2">
               <div>
                 <dt className="text-xs text-slate-500">Razão social</dt>
-                <dd className="text-night-900">{siteConfig.legalName}</dd>
+                <dd className="text-night-900">{company.legalName}</dd>
               </div>
               <div>
                 <dt className="text-xs text-slate-500">CNPJ</dt>
-                <dd className="text-night-900">{siteConfig.cnpj}</dd>
+                <dd className="text-night-900">{company.cnpj}</dd>
               </div>
               <div className="sm:col-span-2">
                 <dt className="text-xs text-slate-500">Sede</dt>
-                <dd className="text-night-900">{companyAddress()}</dd>
+                <dd className="text-night-900">{companyAddressLine(company)}</dd>
               </div>
             </dl>
           </Panel>

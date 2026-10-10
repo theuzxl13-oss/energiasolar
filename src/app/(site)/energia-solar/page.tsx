@@ -1,6 +1,5 @@
 import { buildMetadata } from "@/lib/seo";
 import { solarBenefits, solarSegments } from "@/data/solutions";
-import { faqItems } from "@/data/faq";
 import { Container, Section, SectionHeading } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
@@ -129,7 +128,7 @@ export default function EnergiaSolarPage() {
       </Section>
 
       <SolarSimulatorSection />
-      <FaqSection items={faqItems.filter((item) => item.category === "solar")} title="Dúvidas sobre energia solar." />
+      <FaqSection category="solar" title="Dúvidas sobre energia solar." />
       <CtaBanner title="Pronto para economizar com energia solar?" primary={{ label: "Solicitar orçamento solar", href: "/orcamento?servico=solar" }} />
       <ServiceJsonLd name="Projeto e instalação de energia solar fotovoltaica" description={DESCRIPTION} path="/energia-solar" />
     </>

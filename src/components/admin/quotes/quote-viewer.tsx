@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, FileSignature, MessageCircle, Pencil, Printer } from "lucide-react";
 import { useQuotes } from "@/hooks/use-quotes";
-import { siteConfig } from "@/config/site";
+import { useSiteSettings } from "@/hooks/use-site-content";
 import { QUOTE_STATUSES, QUOTE_STATUS_LABELS, quoteTotals, type QuoteStatus } from "@/lib/quotes";
 import { formatCurrency, onlyDigits } from "@/lib/utils";
 import { QuoteDocument } from "./quote-document";
@@ -14,6 +14,7 @@ import { FitToWidth } from "../documents/fit-to-width";
 export function QuoteViewer() {
   const id = useSearchParams().get("id") ?? "";
   const { quotes, ready, saveQuote } = useQuotes();
+  const company = useSiteSettings().settings;
   const quote = quotes.find((item) => item.id === id);
 
   if (!quote) {
@@ -28,7 +29,7 @@ export function QuoteViewer() {
   }
 
   const total = formatCurrency(quoteTotals(quote).total, true);
-  const contactLine = `Fale conosco pelo WhatsApp ${siteConfig.contact.whatsappDisplay} ou pelo e-mail ${siteConfig.contact.email}.`;
+  const contactLine = `Fale conosco pelo WhatsApp ${company.contact.whatsappDisplay} ou pelo e-mail ${company.contact.email}.`;
 
   function printPdf() {
     if (!quote) return;

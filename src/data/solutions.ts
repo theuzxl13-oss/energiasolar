@@ -1,10 +1,11 @@
 import type { FeatureItem, IconName } from "@/types";
 
 export interface Solution {
-  id: "solar" | "carregadores" | "eletropostos";
+  id: string;
   eyebrow: string;
   title: string;
   description: string;
+  /** Página "Saiba mais". Vazio = sem página própria (o botão é ocultado). */
   href: string;
   cta: { label: string; href: string };
   icon: IconName;

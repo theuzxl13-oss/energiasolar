@@ -1,6 +1,5 @@
 import { buildMetadata } from "@/lib/seo";
 import { chargerExamples, chargingCategories } from "@/data/solutions";
-import { faqItems } from "@/data/faq";
 import { Container, Section, SectionHeading } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
@@ -123,7 +122,7 @@ export default function CarregadoresPage() {
       </Section>
 
       <ChargerSimulatorSection />
-      <FaqSection items={faqItems.filter((item) => item.category === "carregadores")} title="Dúvidas sobre carregadores." />
+      <FaqSection category="carregadores" title="Dúvidas sobre carregadores." />
       <CtaBanner
         title="Vamos instalar o seu carregador?"
         description="Avaliamos sua instalação elétrica e indicamos a solução de recarga mais segura e eficiente."

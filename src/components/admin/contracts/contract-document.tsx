@@ -1,6 +1,6 @@
 "use client";
 
-import { siteConfig } from "@/config/site";
+import { getSiteSettings } from "@/lib/site-content";
 import { clientParagraph, contractMetaLine, contractorParagraph, fillContractTokens, longDate, type Contract } from "@/lib/contracts";
 import { DOC_GREEN as GREEN, DOC_NAVY as NAVY } from "../documents/letterhead-page";
 import { PaginatedLetterhead, type DocumentBlock } from "../documents/paginated-letterhead";
@@ -28,6 +28,7 @@ function SignatureLine({ role, name, doc }: { role: string; name: string; doc: s
 /** Monta os blocos do contrato (cabeçalho, partes, cláusulas, assinaturas) para a paginação automática. */
 function buildBlocks(contract: Contract): DocumentBlock[] {
   const blocks: DocumentBlock[] = [];
+  const company = getSiteSettings();
   const clientDoc = `${contract.client.docType} ${contract.client.document.trim() || (contract.client.docType === "CPF" ? "000.000.000-00" : "00.000.000/0000-00")}`;
 
   blocks.push({
@@ -111,7 +112,7 @@ function buildBlocks(contract: Contract): DocumentBlock[] {
     node: (
       <div className="pt-[6mm]">
         <div className="grid grid-cols-2 gap-[12mm]">
-          <SignatureLine role="Contratada" name={siteConfig.legalName} doc={`CNPJ ${siteConfig.cnpj}`} />
+          <SignatureLine role="Contratada" name={company.legalName} doc={`CNPJ ${company.cnpj}`} />
           <SignatureLine role="Contratante" name={contract.client.name || "Cliente"} doc={clientDoc} />
         </div>
         {contract.witnesses && (

@@ -151,3 +151,31 @@ export const PROJECT_CATEGORY_LABELS: Record<ProjectCategory, string> = {
 export function getProjectBySlug(slug: string) {
   return projects.find((project) => project.slug === slug);
 }
+
+export const PROJECT_ART_LABELS: Record<Project["art"], string> = {
+  "solar-home": "Solar residencial",
+  "solar-commercial": "Solar comercial",
+  "solar-industrial": "Solar industrial",
+  wallbox: "Wallbox",
+  condo: "Condomínio",
+  station: "Eletroposto",
+};
+
+/**
+ * Endereço da página do projeto. Os projetos originais têm página estática
+ * (/projetos/slug); os criados no painel usam a página dinâmica /projetos/detalhe.
+ */
+export function projectHref(slug: string) {
+  return getProjectBySlug(slug) ? `/projetos/${slug}` : `/projetos/detalhe?slug=${encodeURIComponent(slug)}`;
+}
+
+/** Projetos da prévia na página inicial: os marcados como destaque ou um de cada categoria. */
+export function featuredProjects(list: Project[], limit = 3) {
+  const marked = list.filter((project) => project.featured);
+  if (marked.length) return marked.slice(0, limit);
+  const firstOfEach = (Object.keys(PROJECT_CATEGORY_LABELS) as ProjectCategory[])
+    .map((category) => list.find((project) => project.category === category))
+    .filter((project): project is Project => project !== undefined);
+  const rest = list.filter((project) => !firstOfEach.includes(project));
+  return [...firstOfEach, ...rest].slice(0, limit);
+}

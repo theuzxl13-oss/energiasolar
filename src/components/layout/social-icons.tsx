@@ -1,4 +1,6 @@
-import { siteConfig } from "@/config/site";
+"use client";
+
+import { useSiteSettings } from "@/hooks/use-site-content";
 import { cn } from "@/lib/utils";
 
 /* Ícones de marca desenhados localmente (o Lucide não inclui logotipos de marcas). */
@@ -21,8 +23,9 @@ const LABELS: Record<keyof typeof paths, string> = {
 };
 
 export function SocialLinks({ className }: { className?: string }) {
+  const { social } = useSiteSettings().settings;
   const entries = (Object.keys(paths) as (keyof typeof paths)[])
-    .map((key) => [key, siteConfig.social[key]] as const)
+    .map((key) => [key, social[key].trim()] as const)
     .filter((entry): entry is readonly [keyof typeof paths, string] => Boolean(entry[1]));
 
   return (

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bot, LoaderCircle, MessageCircle, Send, X } from "lucide-react";
 import { siteConfig } from "@/config/site";
-import { buildWhatsAppUrl } from "@/lib/whatsapp";
+import { useWhatsAppUrl } from "@/hooks/use-site-content";
 import { sendChatMessage } from "@/services/api-client";
 import type { ChatMessage } from "@/types";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
 export function FloatingActions() {
   const [open, setOpen] = useState(false);
   const [showTip, setShowTip] = useState(false);
+  const whatsappHref = useWhatsAppUrl();
 
   useEffect(() => {
     const timer = window.setTimeout(() => setShowTip(true), 4000);
@@ -39,7 +40,7 @@ export function FloatingActions() {
         <AnimatePresence>
           {showTip && !open && (
             <motion.a
-              href={buildWhatsAppUrl()}
+              href={whatsappHref}
               target="_blank"
               rel="noopener noreferrer"
               initial={{ opacity: 0, x: 16 }}
@@ -53,7 +54,7 @@ export function FloatingActions() {
         </AnimatePresence>
 
         <a
-          href={buildWhatsAppUrl()}
+          href={whatsappHref}
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Fale com um especialista pelo WhatsApp"
@@ -87,6 +88,7 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
     },
   ]);
   const [input, setInput] = useState("");
+  const whatsappHref = useWhatsAppUrl();
   const [loading, setLoading] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -218,7 +220,7 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
           </button>
         </form>
         <a
-          href={buildWhatsAppUrl()}
+          href={whatsappHref}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-2 flex items-center justify-center gap-1.5 text-xs text-ash hover:text-white"

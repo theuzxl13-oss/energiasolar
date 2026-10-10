@@ -1,4 +1,4 @@
-import { buildWhatsAppUrl } from "@/lib/whatsapp";
+import { WhatsAppButtonLink } from "@/components/ui/site-content";
 import { Container } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 
@@ -26,9 +26,9 @@ export function CtaBanner({
             <ButtonLink href={primary.href} size="lg">
               {primary.label}
             </ButtonLink>
-            <ButtonLink href={buildWhatsAppUrl(whatsappMessage)} external variant="whatsapp">
+            <WhatsAppButtonLink message={whatsappMessage} variant="whatsapp">
               WhatsApp
-            </ButtonLink>
+            </WhatsAppButtonLink>
           </div>
         </div>
       </Container>

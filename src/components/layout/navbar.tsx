@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { mainNavigation } from "@/config/navigation";
-import { buildWhatsAppUrl } from "@/lib/whatsapp";
+import { useWhatsAppUrl } from "@/hooks/use-site-content";
 import { cn } from "@/lib/utils";
 import { ButtonLink } from "@/components/ui/button";
 import { Logo } from "./logo";
@@ -16,6 +16,7 @@ export function Navbar() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const whatsappHref = useWhatsAppUrl();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -105,7 +106,7 @@ export function Navbar() {
                 <ButtonLink href="/orcamento" size="lg">
                   Solicitar orçamento
                 </ButtonLink>
-                <ButtonLink href={buildWhatsAppUrl()} external variant="whatsapp">
+                <ButtonLink href={whatsappHref} external variant="whatsapp">
                   Fale com um especialista
                 </ButtonLink>
               </div>

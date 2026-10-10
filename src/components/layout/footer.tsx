@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { footerNavigation } from "@/config/navigation";
 import { isDemoMode, siteConfig } from "@/config/site";
-import { buildWhatsAppUrl } from "@/lib/whatsapp";
+import { useSiteSettings } from "@/hooks/use-site-content";
+import { phoneHref, whatsappUrl } from "@/lib/site-content";
 import { Container } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { FullLogo } from "./logo";
@@ -9,7 +12,9 @@ import { SocialLinks } from "./social-icons";
 
 export function Footer() {
   const year = new Date().getFullYear();
-  const { address, contact } = siteConfig;
+  const { settings } = useSiteSettings();
+  const { address, contact } = settings;
+  const whatsappHref = whatsappUrl(settings);
 
   return (
     <footer className="relative text-mist">
@@ -20,7 +25,7 @@ export function Footer() {
             <ButtonLink href="/orcamento" size="lg">
               Solicitar orçamento
             </ButtonLink>
-            <ButtonLink href={buildWhatsAppUrl()} external variant="whatsapp">
+            <ButtonLink href={whatsappHref} external variant="whatsapp">
               Falar no WhatsApp
             </ButtonLink>
           </div>
@@ -40,12 +45,12 @@ export function Footer() {
             <h2 className="label-caps text-spark">Contato</h2>
             <ul className="mt-5 space-y-3 text-sm font-extralight">
               <li>
-                <a href={`tel:${contact.phoneHref}`} className="hover:text-white">
+                <a href={`tel:${phoneHref(settings)}`} className="hover:text-white">
                   {contact.phoneDisplay}
                 </a>
               </li>
               <li>
-                <a href={buildWhatsAppUrl()} target="_blank" rel="noopener noreferrer" className="hover:text-white">
+                <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="hover:text-white">
                   WhatsApp {contact.whatsappDisplay}
                 </a>
               </li>
@@ -59,8 +64,8 @@ export function Footer() {
                 <br />
                 {address.city} — {address.state}
               </li>
-              {siteConfig.businessHours.map((item) => (
-                <li key={item.label}>
+              {settings.businessHours.map((item, index) => (
+                <li key={`${item.label}-${index}`}>
                   {item.label}: {item.value}
                 </li>
               ))}
@@ -70,7 +75,7 @@ export function Footer() {
 
         <div className="flex flex-col gap-3 border-t border-white/10 py-8 text-xs text-ash md:flex-row md:items-center md:justify-between">
           <p>
-            © {year} {siteConfig.legalName} · CNPJ {siteConfig.cnpj}
+            © {year} {settings.legalName} · CNPJ {settings.cnpj}
           </p>
           {isDemoMode && <p className="text-spark/80">Versão demonstrativa — dados institucionais, indicadores, projetos e depoimentos são ilustrativos.</p>}
         </div>

@@ -11,7 +11,7 @@
  * ============================================================================
  */
 
-import { siteConfig } from "@/config/site";
+import { companyAddressLine, getSiteSettings } from "@/lib/site-content";
 import { currencyToWords, integerToWords, todayIso, type Quote, quoteTotals } from "@/lib/quotes";
 import { formatCurrency, formatNumber, generateId } from "@/lib/utils";
 
@@ -139,14 +139,14 @@ export function longDate(iso: string) {
   return `${day} de ${MONTHS[(month ?? 1) - 1]} de ${year}`;
 }
 
-/** Endereço da empresa a partir de src/config/site.ts. */
+/** Endereço da empresa (editável em /admin/conteudo). */
 export function companyAddress() {
-  const { street, district, city, state, zipCode } = siteConfig.address;
-  return `${street}, ${district}, ${city}/${state}, CEP ${zipCode}`;
+  return companyAddressLine(getSiteSettings());
 }
 
 export function contractorParagraph() {
-  return `${siteConfig.legalName}, pessoa jurídica de direito privado inscrita no CNPJ sob o nº ${siteConfig.cnpj}, com sede em ${companyAddress()}.`;
+  const { legalName, cnpj } = getSiteSettings();
+  return `${legalName}, pessoa jurídica de direito privado inscrita no CNPJ sob o nº ${cnpj}, com sede em ${companyAddress()}.`;
 }
 
 export function clientParagraph(contract: Contract) {
@@ -233,6 +233,7 @@ export function emptyContract(id: string, number: string): Contract {
   const today = todayIso();
   const now = new Date().toISOString();
   const service: ContractService = "solar";
+  const { address } = getSiteSettings();
   return {
     id,
     number,
@@ -243,9 +244,9 @@ export function emptyContract(id: string, number: string): Contract {
     quoteId: null,
     startDate: today,
     executionDays: 60,
-    signingCity: siteConfig.address.city,
+    signingCity: address.city,
     signingDate: today,
-    forum: `${siteConfig.address.city}/${siteConfig.address.state}`,
+    forum: `${address.city}/${address.state}`,
     client: { name: "", docType: "CPF", document: "", address: "", representative: "", phone: "", email: "", installationAddress: "" },
     object: DEFAULT_OBJECTS[service],
     scope: "",
