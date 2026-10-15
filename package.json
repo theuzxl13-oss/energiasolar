@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:static": "rm -rf src/app/api src/proxy.ts && next build",
+    "build:static": "rm -rf src/app/api src/proxy.ts && STATIC_EXPORT=true NEXT_PUBLIC_STATIC_DEMO=true NEXT_PUBLIC_DEMO_MODE=true NEXT_PUBLIC_SUPABASE_URL=https://krwedupwqngkuljlcdtk.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_wQ0xHVtyclmlZwD-mUoANw_ouFHoi6o next build",
     "start": "next start",
     "typecheck": "tsc --noEmit"
   },
