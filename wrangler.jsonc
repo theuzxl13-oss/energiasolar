@@ -1,0 +1,13 @@
+// Cloudflare Workers — site ESTÁTICO (apenas arquivos, sem código de servidor).
+// Servir arquivos estáticos é gratuito e não consome o limite de CPU do plano grátis.
+// Build: `npm run build:static` (gera a pasta out/) → deploy: `npx wrangler deploy`.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dc-eco-energy",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  }
+}
