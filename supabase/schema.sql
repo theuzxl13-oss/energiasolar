@@ -180,6 +180,22 @@ alter table public.projects     enable row level security;
 alter table public.faq          enable row level security;
 alter table public.testimonials enable row level security;
 
+-- Permissões explícitas (o projeto não expõe tabelas novas automaticamente).
+-- Elas só abrem a "porta"; quem decide o que cada um vê são as políticas abaixo.
+grant usage on schema public to anon, authenticated;
+grant select, update                 on public.profiles     to authenticated;
+grant insert                         on public.leads        to anon;
+grant select, insert, update, delete on public.leads        to authenticated;
+grant select, insert, update, delete on public.quotes       to authenticated;
+grant select, insert, update, delete on public.contracts    to authenticated;
+grant select                         on public.projects     to anon;
+grant select, insert, update, delete on public.projects     to authenticated;
+grant select                         on public.faq          to anon;
+grant select, insert, update, delete on public.faq          to authenticated;
+grant select                         on public.testimonials to anon;
+grant select, insert, update, delete on public.testimonials to authenticated;
+grant execute on function public.is_admin(), public.is_staff() to anon, authenticated;
+
 -- Recria as políticas (permite reexecutar o arquivo).
 do $$ declare r record; begin
   for r in select policyname, tablename from pg_policies where schemaname = 'public'

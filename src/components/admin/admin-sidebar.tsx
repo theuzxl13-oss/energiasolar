@@ -14,6 +14,7 @@ import {
   Inbox,
   Layers,
   LayoutDashboard,
+  LogOut,
   Menu,
   MessageSquareQuote,
   PanelsTopLeft,
@@ -22,6 +23,7 @@ import {
 } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { cn } from "@/lib/utils";
+import { useAdminAuth } from "./auth/admin-auth";
 
 export const ADMIN_NAV = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -63,6 +65,27 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+/** Usuário logado + botão Sair (só aparece com o login ativado). */
+function Account() {
+  const { enabled, profile, signOut } = useAdminAuth();
+  if (!enabled || !profile) return null;
+  return (
+    <div className="mt-2 border-t border-white/5 pt-3">
+      <p className="truncate px-3 text-xs text-slate-400" title={profile.email}>
+        {profile.fullName || profile.email}
+        {profile.role === "admin" && <span className="ml-1 text-brand-300">· admin</span>}
+      </p>
+      <button
+        type="button"
+        onClick={signOut}
+        className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-slate-400 hover:bg-white/5 hover:text-white"
+      >
+        <LogOut className="size-4" aria-hidden="true" /> Sair
+      </button>
+    </div>
+  );
+}
+
 function Brand() {
   return (
     <Link href="/admin" className="flex items-center gap-3 px-2">
@@ -91,6 +114,7 @@ export function AdminSidebar() {
         <Link href="/" className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-slate-400 hover:bg-white/5 hover:text-white">
           <ExternalLink className="size-4" aria-hidden="true" /> Ver site
         </Link>
+        <Account />
       </aside>
 
       {/* Mobile */}
@@ -116,6 +140,7 @@ export function AdminSidebar() {
             <Link href="/" className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-slate-400 hover:text-white">
               <ExternalLink className="size-4" aria-hidden="true" /> Ver site
             </Link>
+            <Account />
           </div>
         </div>
       )}
