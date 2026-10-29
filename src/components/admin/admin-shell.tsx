@@ -24,12 +24,10 @@ function Frame({ children }: { children: React.ReactNode }) {
         <AdminSidebar />
       </div>
       <div className="lg:pl-64 print:pl-0">
-        {isDemoMode && (
+        {isDemoMode && !isSupabaseConfigured && (
           <div className="flex items-center gap-2 bg-amber-50 px-4 py-2.5 text-xs font-medium text-amber-900 ring-1 ring-amber-200 sm:px-8 print:hidden">
             <Info className="size-4 shrink-0" aria-hidden="true" />
-            {isSupabaseConfigured
-              ? "Leads, orçamentos e contratos ficam salvos no banco de dados. Edições de conteúdo do site (projetos, serviços, FAQ e dados da empresa) ainda ficam apenas neste navegador."
-              : "Modo demonstração: dados fictícios. Solicitações enviadas pelo site neste navegador também aparecem aqui."}
+            Modo demonstração: dados fictícios. Solicitações enviadas pelo site neste navegador também aparecem aqui.
           </div>
         )}
         <main className="px-4 py-8 sm:px-8 print:p-0">{children}</main>

@@ -3,12 +3,10 @@
  * CONTEÚDO EDITÁVEL PELO PAINEL (MODO DEMONSTRAÇÃO)
  * ============================================================================
  * Projetos, serviços, FAQ e dados da empresa podem ser editados em /admin.
- * As edições ficam no armazenamento do navegador (localStorage) de quem
- * editou; sem edição, valem os padrões de `src/config` e `src/data`.
- *
- * Para usar um banco (Supabase), troque apenas `readContent`/`writeContent`
- * por chamadas à API — os hooks em `src/hooks/use-site-content.ts` e as
- * telas continuam iguais.
+ * Com o Supabase configurado, as edições ficam na tabela `site_content` e
+ * valem para todos os visitantes (carregadas por `src/hooks/use-site-content.ts`).
+ * Sem ele, ficam no navegador (localStorage) de quem editou.
+ * Sem edição, valem os padrões de `src/config` e `src/data`.
  * ============================================================================
  */
 
@@ -27,9 +25,17 @@ export const CONTENT_CHANGE_EVENT = "site-content-change";
 
 /* ------------------------------ Armazenamento ------------------------------ */
 
+/** Conteúdo vindo do banco; preenchido por `use-site-content` quando o Supabase está configurado. */
+export const remoteContent = {
+  enabled: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+  loaded: false,
+  values: new Map<string, unknown>(),
+};
+
 /** Lê um conteúdo salvo; `null` quando não há edição (ou fora do navegador). */
 export function readContent<T>(key: string): T | null {
   if (typeof window === "undefined") return null;
+  if (remoteContent.enabled) return (remoteContent.values.get(key) as T | undefined) ?? null;
   try {
     const raw = window.localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as T) : null;
