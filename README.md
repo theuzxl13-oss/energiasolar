@@ -253,7 +253,7 @@ Para não apresentar informações falsas como reais, os itens abaixo são place
 | Indicadores (+projetos, +kWp…) | `src/config/stats.ts` | Selo "Dado demonstrativo" |
 | Projetos do portfólio | `src/data/projects.ts` | Selo "Projeto demonstrativo" + "localização demonstrativa" |
 | Depoimentos | `src/data/testimonials.ts` ou Google | Selo "Depoimento demonstrativo" (texto de espaço reservado) |
-| Leads, orçamentos e valores do admin | `src/data/mock/leads.ts`, `src/lib/admin-metrics.ts` | Faixa "Modo demonstração" no painel |
+| Valores do admin (sem leads fictícios) | `src/lib/admin-metrics.ts` | Faixa "Modo demonstração" no painel |
 | Parâmetros dos simuladores | `src/lib/simulators/` | Aviso de valores estimados |
 
 Não há certificações, parceiros, clientes ou números apresentados como verdadeiros.

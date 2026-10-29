@@ -17,7 +17,7 @@ function toCsv(leads: Lead[]) {
 }
 
 export function LeadsTable() {
-  const { leads, updateStatus, resetDemo, localCount } = useDemoLeads();
+  const { leads, error, updateStatus, resetDemo, localCount } = useDemoLeads();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<LeadStatus | "">("");
   const [service, setService] = useState<ServiceType | "">("");
@@ -62,6 +62,12 @@ export function LeadsTable() {
           </>
         }
       />
+
+      {error && (
+        <p role="alert" className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800 ring-1 ring-rose-200">
+          {error}
+        </p>
+      )}
 
       <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:flex-row">
         <label className="relative flex-1">
