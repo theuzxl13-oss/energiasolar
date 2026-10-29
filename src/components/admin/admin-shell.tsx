@@ -2,6 +2,7 @@
 
 import { Info } from "lucide-react";
 import { isDemoMode } from "@/config/site";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { AdminSidebar } from "./admin-sidebar";
 import { AdminAuthGate, useIsAdminPublicPage } from "./auth/admin-auth";
 
@@ -26,7 +27,9 @@ function Frame({ children }: { children: React.ReactNode }) {
         {isDemoMode && (
           <div className="flex items-center gap-2 bg-amber-50 px-4 py-2.5 text-xs font-medium text-amber-900 ring-1 ring-amber-200 sm:px-8 print:hidden">
             <Info className="size-4 shrink-0" aria-hidden="true" />
-            Modo demonstração: dados fictícios. Solicitações enviadas pelo site neste navegador também aparecem aqui.
+            {isSupabaseConfigured
+              ? "Leads reais, salvos no banco de dados. Orçamentos e contratos ainda ficam salvos apenas neste navegador."
+              : "Modo demonstração: dados fictícios. Solicitações enviadas pelo site neste navegador também aparecem aqui."}
           </div>
         )}
         <main className="px-4 py-8 sm:px-8 print:p-0">{children}</main>
