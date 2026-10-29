@@ -169,6 +169,16 @@ create table if not exists public.testimonials (
   created_at  timestamptz not null default now()
 );
 
+-- Conteúdo editável pelo painel (dados da empresa, projetos, serviços, FAQ):
+-- um registro JSON por bloco, com as mesmas chaves de `src/lib/site-content.ts`.
+create table if not exists public.site_content (
+  key        text primary key,
+  value      jsonb not null,
+  updated_at timestamptz not null default now()
+);
+drop trigger if exists site_content_updated_at on public.site_content;
+create trigger site_content_updated_at before update on public.site_content for each row execute function public.set_updated_at();
+
 -- -----------------------------------------------------------------------------
 -- Row Level Security
 -- -----------------------------------------------------------------------------
@@ -179,6 +189,7 @@ alter table public.contracts    enable row level security;
 alter table public.projects     enable row level security;
 alter table public.faq          enable row level security;
 alter table public.testimonials enable row level security;
+alter table public.site_content enable row level security;
 
 -- Permissões explícitas (o projeto não expõe tabelas novas automaticamente).
 -- Elas só abrem a "porta"; quem decide o que cada um vê são as políticas abaixo.
@@ -194,12 +205,14 @@ grant select                         on public.faq          to anon;
 grant select, insert, update, delete on public.faq          to authenticated;
 grant select                         on public.testimonials to anon;
 grant select, insert, update, delete on public.testimonials to authenticated;
+grant select                         on public.site_content to anon;
+grant select, insert, update, delete on public.site_content to authenticated;
 grant execute on function public.is_admin(), public.is_staff() to anon, authenticated;
 
 -- Recria as políticas (permite reexecutar o arquivo).
 do $$ declare r record; begin
   for r in select policyname, tablename from pg_policies where schemaname = 'public'
-    and tablename in ('profiles','leads','quotes','contracts','projects','faq','testimonials')
+    and tablename in ('profiles','leads','quotes','contracts','projects','faq','testimonials','site_content')
   loop execute format('drop policy %I on public.%I', r.policyname, r.tablename); end loop;
 end $$;
 
@@ -231,6 +244,8 @@ create policy "público lê faq" on public.faq for select to anon, authenticated
 create policy "admin gerencia faq" on public.faq for all to authenticated using (public.is_admin()) with check (public.is_admin());
 create policy "público lê depoimentos" on public.testimonials for select to anon, authenticated using ((published and authorized) or public.is_admin());
 create policy "admin gerencia depoimentos" on public.testimonials for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "público lê conteúdo do site" on public.site_content for select to anon, authenticated using (true);
+create policy "admin gerencia conteúdo do site" on public.site_content for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
 -- -----------------------------------------------------------------------------
 -- Armazenamento de fotos dos projetos (Supabase Storage)

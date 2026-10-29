@@ -11,6 +11,7 @@ import { ProjectArt } from "@/components/illustrations/project-art";
 import { DemoBadge } from "@/components/ui/primitives";
 import { AdminPageHeader, DemoNote } from "./ui";
 import { Field, inputClass } from "./form-fields";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 
 const buttonGhost = "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50";
 
@@ -157,8 +158,18 @@ export function ProjectsManager() {
         }
       />
       <DemoNote>
-        Modo demonstração: os projetos ficam salvos <strong>neste navegador</strong> e já aparecem no site (página Projetos, prévia da página inicial e
-        página de cada projeto). As fotos são reduzidas automaticamente; o espaço do navegador é limitado (poucos MB). Marque a estrela para escolher
+        {isSupabaseConfigured ? (
+          <>
+            Os projetos ficam salvos no banco de dados e aparecem para todos no site (página Projetos, prévia da página inicial e página de cada projeto).
+            As fotos são reduzidas automaticamente e enviadas ao armazenamento do Supabase.
+          </>
+        ) : (
+          <>
+            Modo demonstração: os projetos ficam salvos <strong>neste navegador</strong> e já aparecem no site (página Projetos, prévia da página inicial e
+            página de cada projeto). As fotos são reduzidas automaticamente; o espaço do navegador é limitado (poucos MB).
+          </>
+        )}{" "}
+        Marque a estrela para escolher
         os projetos da página inicial{featuredCount ? ` (${featuredCount} marcados)` : " (sem marcação, aparece um de cada categoria)"}.
       </DemoNote>
 

@@ -11,6 +11,7 @@ import { Icon } from "@/components/ui/icon";
 import { AdminPageHeader, DemoNote, Panel } from "./ui";
 import { Field, inputClass } from "./form-fields";
 import { cn, moveItem } from "@/lib/utils";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 
 /** Links sugeridos para "Saiba mais" e para o botão de ação. */
 const LINK_SUGGESTIONS = [
@@ -99,8 +100,14 @@ export function ServicesManager() {
         }
       />
       <DemoNote>
-        Modo demonstração: as alterações ficam salvas <strong>neste navegador</strong> e já aparecem na seção “Nossas soluções” do site. Com o banco
-        conectado, todos verão as alterações.
+        {isSupabaseConfigured ? (
+          <>As alterações ficam salvas no banco de dados e aparecem para todos na seção “Nossas soluções” do site.</>
+        ) : (
+          <>
+            Modo demonstração: as alterações ficam salvas <strong>neste navegador</strong> e já aparecem na seção “Nossas soluções” do site. Com o banco
+            conectado, todos verão as alterações.
+          </>
+        )}
       </DemoNote>
 
       {draft && (

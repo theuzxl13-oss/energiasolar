@@ -1,5 +1,6 @@
 "use client";
 
+import { useSiteSettings } from "@/hooks/use-site-content";
 import { getSiteSettings } from "@/lib/site-content";
 import { clientParagraph, contractMetaLine, contractorParagraph, fillContractTokens, longDate, type Contract } from "@/lib/contracts";
 import { DOC_GREEN as GREEN, DOC_NAVY as NAVY } from "../documents/letterhead-page";
@@ -129,5 +130,7 @@ function buildBlocks(contract: Contract): DocumentBlock[] {
 }
 
 export function ContractDocument({ contract }: { contract: Contract }) {
-  return <PaginatedLetterhead blocks={buildBlocks(contract)} version={JSON.stringify(contract)} />;
+  // Redesenha quando os dados da empresa chegam do banco (usados em buildBlocks).
+  const { settings } = useSiteSettings();
+  return <PaginatedLetterhead blocks={buildBlocks(contract)} version={JSON.stringify([contract, settings])} />;
 }

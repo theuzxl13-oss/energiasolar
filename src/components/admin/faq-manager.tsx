@@ -6,6 +6,7 @@ import { useContentReady, useFaq } from "@/hooks/use-site-content";
 import type { FaqItem } from "@/types";
 import { moveItem } from "@/lib/utils";
 import { AdminPageHeader, DemoNote } from "./ui";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 
 const CATEGORY_LABELS: Record<FaqItem["category"], string> = {
   solar: "Energia solar",
@@ -78,8 +79,14 @@ export function FaqManager() {
         }
       />
       <DemoNote>
-        Modo demonstração: as perguntas ficam salvas <strong>neste navegador</strong> e já aparecem no site (página inicial e páginas de cada solução,
-        conforme a categoria). Com o banco conectado, todos verão as alterações.
+        {isSupabaseConfigured ? (
+          <>As perguntas ficam salvas no banco de dados e aparecem para todos no site (página inicial e páginas de cada solução, conforme a categoria).</>
+        ) : (
+          <>
+            Modo demonstração: as perguntas ficam salvas <strong>neste navegador</strong> e já aparecem no site (página inicial e páginas de cada solução,
+            conforme a categoria). Com o banco conectado, todos verão as alterações.
+          </>
+        )}
       </DemoNote>
 
       <ul className="space-y-3">

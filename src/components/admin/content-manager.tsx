@@ -9,6 +9,7 @@ import { maskPhone, onlyDigits } from "@/lib/utils";
 import type { CompanyStat } from "@/types";
 import { AdminPageHeader, DemoNote, Panel } from "./ui";
 import { Field, inputClass } from "./form-fields";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 
 function maskCnpj(value: string) {
   return onlyDigits(value)
@@ -129,8 +130,14 @@ function ContentForm({
       />
       {!editing && <p className="text-sm text-slate-500">Os dados estão protegidos contra alterações. Clique em <strong>Editar</strong> para modificar.</p>}
       <DemoNote>
-        Modo demonstração: as alterações ficam salvas <strong>neste navegador</strong> e aparecem no site (rodapé, contato, botões de WhatsApp, política
-        de privacidade, indicadores) e nos orçamentos e contratos. Outras pessoas só verão quando o banco de dados for conectado.
+        {isSupabaseConfigured ? (
+          <>As alterações ficam salvas no banco de dados e aparecem para todos no site (rodapé, contato, botões de WhatsApp, política de privacidade, indicadores) e nos orçamentos e contratos.</>
+        ) : (
+          <>
+            Modo demonstração: as alterações ficam salvas <strong>neste navegador</strong> e aparecem no site (rodapé, contato, botões de WhatsApp, política
+            de privacidade, indicadores) e nos orçamentos e contratos. Outras pessoas só verão quando o banco de dados for conectado.
+          </>
+        )}
       </DemoNote>
 
       {status !== "idle" && (
@@ -144,7 +151,7 @@ function ContentForm({
         >
           {status === "saved" ? (
             <>
-              <Check className="size-4" aria-hidden="true" /> Alterações salvas. O site já está atualizado neste navegador.
+              <Check className="size-4" aria-hidden="true" /> {isSupabaseConfigured ? "Alterações salvas. O site já está atualizado." : "Alterações salvas. O site já está atualizado neste navegador."}
             </>
           ) : (
             "Não foi possível salvar (armazenamento do navegador indisponível ou cheio)."
