@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { mockLeads } from "@/data/mock/leads";
 import type { Lead, LeadStatus } from "@/types";
 
 /**
@@ -59,8 +58,7 @@ export function useDemoLeads() {
   }, []);
 
   const leads = useMemo(() => {
-    const merged = [...localLeads, ...mockLeads];
-    return merged
+    return localLeads
       .map((lead) => (statusOverrides[lead.id] ? { ...lead, status: statusOverrides[lead.id]! } : lead))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [localLeads, statusOverrides]);

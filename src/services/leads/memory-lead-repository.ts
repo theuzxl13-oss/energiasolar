@@ -1,5 +1,4 @@
 import "server-only";
-import { mockLeads } from "@/data/mock/leads";
 import { generateId } from "@/lib/utils";
 import type { Lead } from "@/types";
 import type { LeadRepository } from "./lead-repository";
@@ -9,7 +8,7 @@ import type { LeadRepository } from "./lead-repository";
  * Os dados duram enquanto a instância do servidor estiver ativa — em
  * ambientes serverless podem ser reiniciados a qualquer momento.
  */
-const store: Lead[] = [...mockLeads];
+const store: Lead[] = [];
 
 export const memoryLeadRepository: LeadRepository = {
   name: "memory",
