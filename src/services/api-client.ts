@@ -88,8 +88,15 @@ export async function submitContact(payload: ContactFormInput) {
 
 export async function sendChatMessage(messages: ChatMessage[]) {
   if (STATIC_DEMO) {
-    const reply = await demoChatProvider.reply(messages.slice(-12));
-    return { reply: reply.content, provider: reply.provider };
+    // Site estático: a IA roda no Worker da Cloudflare (/api/chat). Sem IA
+    // configurada ou fora do ar, usa as respostas prontas da base local.
+    try {
+      return await postJson<{ reply: string; provider: string }>("/api/chat", { messages });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 429) throw error;
+      const reply = await demoChatProvider.reply(messages.slice(-12));
+      return { reply: reply.content, provider: reply.provider };
+    }
   }
   return postJson<{ reply: string; provider: string }>("/api/chat", { messages });
 }

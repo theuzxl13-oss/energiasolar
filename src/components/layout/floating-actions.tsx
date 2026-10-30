@@ -219,6 +219,9 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
             <Send className="size-4" />
           </button>
         </form>
+        <p className="mt-2 px-1 text-[11px] leading-snug text-white/40">
+          Respostas automáticas geradas por IA. Não digite dados pessoais aqui; para orçamento, use o formulário ou o WhatsApp.
+        </p>
         <a
           href={whatsappHref}
           target="_blank"
