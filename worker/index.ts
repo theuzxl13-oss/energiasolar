@@ -1,49 +1,45 @@
 /**
- * Cloudflare Worker: serve o site estático (pasta out/) e a rota POST /api/chat.
- *
- * O chat usa o Gemini (Google). A chave fica no segredo GEMINI_API_KEY da
- * Cloudflare e nunca chega ao navegador. Sem chave, com erro ou com a cota
- * gratuita esgotada, responde 503 e o site usa as respostas prontas.
+ * Cloudflare Worker: serve o site estático (pasta out/) e as rotas /api/*.
+ * - /api/chat: chat com o Gemini (segredo GEMINI_API_KEY). Sem chave, com erro
+ *   ou com a cota gratuita esgotada, responde 503 e o site usa as respostas prontas.
+ * - /api/leads: formulários com "não sou robô" (worker/leads.ts).
+ * - /api/backup/run e cron mensal: backup por e-mail (worker/backup.ts).
+ * - /api/status: o que está configurado (tela de Configurações do painel).
  */
 import { chatRequestSchema } from "../src/lib/validations/chat";
 import { buildSystemPrompt } from "../src/services/ai/knowledge-base";
 import type { ChatMessage } from "../src/types";
-
-interface Env {
-  ASSETS: { fetch(request: Request): Promise<Response> };
-  CHAT_LIMITER?: { limit(options: { key: string }): Promise<{ success: boolean }> };
-  GEMINI_API_KEY?: string;
-  GEMINI_MODEL?: string;
-  SUPABASE_URL?: string;
-  SUPABASE_ANON_KEY?: string;
-}
+import { backupConfigured, backupNow, runBackup } from "./backup";
+import { json, limited, readJsonPost, type Env } from "./http";
+import { leadsConfig, leadsViaServer, submitLead } from "./leads";
 
 const DEFAULT_MODEL = "gemini-flash-latest";
 
-/** Tamanho máximo do corpo do chat (12 mensagens de até 1.500 caracteres cabem com folga). */
-const MAX_BODY_BYTES = 64 * 1024;
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store",
-      "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
-      "Referrer-Policy": "no-referrer",
-    },
-  });
-
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-    if (url.pathname === "/api/chat/status") return chatStatus(request, env);
-    if (url.pathname === "/api/chat") {
-      if (request.method !== "POST") return json({ error: "Método não permitido." }, 405);
-      return handleChat(request, env);
+    const { pathname } = new URL(request.url);
+    switch (pathname) {
+      case "/api/chat/status":
+        return chatStatus(request, env);
+      case "/api/chat":
+        return handleChat(request, env);
+      case "/api/leads/config":
+        return leadsConfig(env);
+      case "/api/leads":
+        return submitLead(request, env);
+      case "/api/backup/run":
+        return backupNow(request, env);
+      case "/api/status":
+        return json({ leadsViaServer: leadsViaServer(env), backup: backupConfigured(env) });
     }
+    if (pathname.startsWith("/api/")) return json({ error: "Não encontrado." }, 404);
     return env.ASSETS.fetch(request);
+  },
+
+  /** Cron mensal (wrangler.jsonc → triggers.crons): backup por e-mail. */
+  async scheduled(_controller: unknown, env: Env, ctx: { waitUntil(promise: Promise<unknown>): void }) {
+    if (!backupConfigured(env)) return;
+    ctx.waitUntil(runBackup(env).catch((error) => console.error("[backup] Falha no envio mensal:", error instanceof Error ? error.message : error)));
   },
 };
 
@@ -54,10 +50,7 @@ export default {
 async function chatStatus(request: Request, env: Env) {
   const model = env.GEMINI_MODEL || DEFAULT_MODEL;
   if (!env.GEMINI_API_KEY) return json({ configured: false, valid: false, model });
-  const ip = request.headers.get("CF-Connecting-IP") ?? "anon";
-  if (env.CHAT_LIMITER && !(await env.CHAT_LIMITER.limit({ key: `status:${ip}` })).success) {
-    return json({ error: "Muitas consultas. Aguarde um instante." }, 429);
-  }
+  if (await limited(env, request, "status")) return json({ error: "Muitas consultas. Aguarde um instante." }, 429);
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}`, {
       headers: { "x-goog-api-key": env.GEMINI_API_KEY },
@@ -70,28 +63,12 @@ async function chatStatus(request: Request, env: Env) {
 }
 
 async function handleChat(request: Request, env: Env) {
-  // Só aceita chamadas do próprio site (navegadores sempre enviam Origin em POST).
-  const origin = request.headers.get("Origin");
-  if (!origin || origin !== new URL(request.url).origin) return json({ error: "Origem não permitida." }, 403);
-  if (!request.headers.get("Content-Type")?.includes("application/json")) return json({ error: "Formato inválido." }, 415);
-  if (Number(request.headers.get("Content-Length") ?? 0) > MAX_BODY_BYTES) return json({ error: "Mensagem muito grande." }, 413);
-
+  const read = await readJsonPost(request);
+  if ("error" in read) return read.error;
   if (!env.GEMINI_API_KEY) return json({ error: "IA não configurada." }, 503);
+  if (await limited(env, request, "chat")) return json({ error: "Muitas mensagens em pouco tempo. Aguarde um instante." }, 429);
 
-  const ip = request.headers.get("CF-Connecting-IP") ?? "anon";
-  if (env.CHAT_LIMITER && !(await env.CHAT_LIMITER.limit({ key: ip })).success) {
-    return json({ error: "Muitas mensagens em pouco tempo. Aguarde um instante." }, 429);
-  }
-
-  const raw = await request.text().catch(() => "");
-  if (raw.length > MAX_BODY_BYTES) return json({ error: "Mensagem muito grande." }, 413);
-  let body: unknown = null;
-  try {
-    body = JSON.parse(raw);
-  } catch {
-    /* inválido: o schema recusa abaixo */
-  }
-  const parsed = chatRequestSchema.safeParse(body);
+  const parsed = chatRequestSchema.safeParse(read.body);
   if (!parsed.success) return json({ error: "Mensagem inválida." }, 400);
 
   // Só o histórico recente, para controlar consumo da cota.

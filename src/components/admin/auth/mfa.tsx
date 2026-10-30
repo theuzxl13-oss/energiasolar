@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, KeyRound, LoaderCircle, LogOut, Smartphone } from "lucide-react";
+import { Copy, Download, KeyRound, LifeBuoy, LoaderCircle, LogOut, Smartphone } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
 import { inputClass } from "../form-fields";
 import { CenteredCard } from "./admin-auth";
@@ -86,8 +86,11 @@ function SignOutLink({ onSignOut }: { onSignOut: () => void }) {
   );
 }
 
-/** Pede o código de 6 dígitos de quem já cadastrou a verificação. */
+/** Pede o código de 6 dígitos de quem já cadastrou a verificação (ou um código reserva). */
 export function MfaChallenge({ onDone, onSignOut }: { onDone: () => void; onSignOut: () => void }) {
+  const [lostPhone, setLostPhone] = useState(false);
+  if (lostPhone) return <RecoveryCodeLogin onRecovered={onDone} onBack={() => setLostPhone(false)} onSignOut={onSignOut} />;
+
   async function verify(code: string) {
     const supabase = getSupabase();
     const { data: factors } = await supabase.auth.mfa.listFactors();
@@ -105,6 +108,10 @@ export function MfaChallenge({ onDone, onSignOut }: { onDone: () => void; onSign
       <h1 className="mt-4 font-display text-xl font-bold text-night-900">Verificação em duas etapas</h1>
       <p className="mt-2 text-sm text-slate-600">Abra o app Senhas (ou seu app autenticador) e digite o código do painel.</p>
       <CodeForm onSubmit={verify} label="Código de 6 dígitos" />
+      <button type="button" onClick={() => setLostPhone(true)} className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline">
+        <LifeBuoy className="size-4" aria-hidden="true" /> Perdi o celular: usar código reserva
+      </button>
+      <br />
       <SignOutLink onSignOut={onSignOut} />
     </CenteredCard>
   );
@@ -187,6 +194,188 @@ export function MfaEnroll({ onDone, onSignOut }: { onDone: () => void; onSignOut
           <CodeForm onSubmit={verify} label="Código de 6 dígitos do app" />
         </>
       )}
+      <SignOutLink onSignOut={onSignOut} />
+    </CenteredCard>
+  );
+}
+
+/* ------------------------------ Códigos reserva ----------------------------- */
+
+/** Celular perdido: código reserva → apaga o app antigo → cadastra o celular novo. */
+function RecoveryCodeLogin({ onRecovered, onBack, onSignOut }: { onRecovered: () => void; onBack: () => void; onSignOut: () => void }) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    const supabase = getSupabase();
+    const { data, error: rpcError } = await supabase.rpc("use_recovery_code", { code });
+    if (rpcError || data !== true) {
+      setBusy(false);
+      setError(rpcError && /Muitas tentativas/.test(rpcError.message) ? "Muitas tentativas. Aguarde 1 hora." : "Código reserva inválido ou já usado.");
+      return;
+    }
+    // A sessão precisa saber que o app antigo foi removido.
+    await supabase.auth.refreshSession();
+    onRecovered();
+  }
+
+  return (
+    <CenteredCard>
+      <LifeBuoy className="mx-auto size-10 text-brand-600" aria-hidden="true" />
+      <h1 className="mt-4 font-display text-xl font-bold text-night-900">Usar código reserva</h1>
+      <p className="mt-2 text-sm text-slate-600">
+        Digite um dos códigos reserva que você guardou. Depois, cadastre o app de códigos no celular novo. Cada código reserva só funciona uma vez.
+      </p>
+      <form onSubmit={submit} className="mt-6 grid gap-4 text-left">
+        <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+          Código reserva
+          <input
+            required
+            autoFocus
+            autoComplete="off"
+            spellCheck={false}
+            maxLength={24}
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            className={`${inputClass} text-center font-mono tracking-widest`}
+            placeholder="xxxx-xxxx-xxxx-xxxx"
+          />
+        </label>
+        {error && (
+          <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-800 ring-1 ring-rose-200">
+            {error}
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={busy || code.replace(/[^0-9a-z]/gi, "").length < 16}
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+        >
+          {busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <KeyRound className="size-4" aria-hidden="true" />} Confirmar
+        </button>
+      </form>
+      <button type="button" onClick={onBack} className="mt-4 text-sm font-semibold text-slate-600 hover:text-night-900">
+        Voltar para o código do app
+      </button>
+      <br />
+      <SignOutLink onSignOut={onSignOut} />
+    </CenteredCard>
+  );
+}
+
+/** Quantos códigos reserva ainda não usados; `null` se o banco ainda não tem o recurso. */
+export async function recoveryCodesRemaining(): Promise<number | null> {
+  const { data, error } = await getSupabase().rpc("recovery_codes_remaining");
+  return error || typeof data !== "number" ? null : data;
+}
+
+/** Gera códigos reserva novos (os antigos deixam de valer) e mostra uma única vez. */
+export function RecoveryCodesPanel({ onDone, intro }: { onDone?: () => void; intro?: React.ReactNode }) {
+  const [codes, setCodes] = useState<string[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function generate() {
+    setBusy(true);
+    setError(null);
+    const { data, error: rpcError } = await getSupabase().rpc("generate_recovery_codes");
+    setBusy(false);
+    if (rpcError || !Array.isArray(data)) return setError("Não foi possível gerar os códigos. Atualize a página e tente novamente.");
+    setCodes(data as string[]);
+  }
+
+  const text = codes ? `Códigos reserva do painel DC Eco Energy (cada um vale uma vez)\nGerados em ${new Date().toLocaleString("pt-BR")}\n\n${codes.join("\n")}\n` : "";
+
+  function download() {
+    const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "codigos-reserva-painel.txt";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="text-left">
+      {intro}
+      {!codes ? (
+        <button
+          type="button"
+          onClick={generate}
+          disabled={busy}
+          className="mt-4 inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+        >
+          {busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <LifeBuoy className="size-4" aria-hidden="true" />} Gerar códigos reserva
+        </button>
+      ) : (
+        <>
+          <ul className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-4 font-mono text-sm text-night-900 ring-1 ring-slate-200">
+            {codes.map((code) => (
+              <li key={code}>{code}</li>
+            ))}
+          </ul>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={download} className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
+              <Download className="size-4" aria-hidden="true" /> Baixar .txt
+            </button>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(text).then(() => setCopied(true), () => undefined)}
+              className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+            >
+              <Copy className="size-4" aria-hidden="true" /> {copied ? "Copiados" : "Copiar"}
+            </button>
+          </div>
+          <p className="mt-3 text-xs text-slate-500">
+            Guarde fora do celular: impressos, num gerenciador de senhas ou numa nota segura. Esta é a única vez que eles aparecem.
+          </p>
+          {onDone && (
+            <>
+              <label className="mt-4 flex items-start gap-2 text-sm text-slate-700">
+                <input type="checkbox" checked={saved} onChange={(event) => setSaved(event.target.checked)} className="mt-0.5 size-4 accent-brand-600" />
+                Guardei os códigos em um lugar seguro.
+              </label>
+              <button
+                type="button"
+                onClick={onDone}
+                disabled={!saved}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+              >
+                Continuar para o painel
+              </button>
+            </>
+          )}
+        </>
+      )}
+      {error && (
+        <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-800 ring-1 ring-rose-200">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Tela obrigatória enquanto a pessoa não tiver códigos reserva. */
+export function RecoveryCodesSetup({ onDone, onSignOut }: { onDone: () => void; onSignOut: () => void }) {
+  return (
+    <CenteredCard>
+      <LifeBuoy className="mx-auto size-10 text-brand-600" aria-hidden="true" />
+      <h1 className="mt-4 font-display text-xl font-bold text-night-900">Códigos reserva</h1>
+      <RecoveryCodesPanel
+        onDone={onDone}
+        intro={
+          <p className="mt-2 text-sm text-slate-600">
+            Se perder o celular, um código reserva permite entrar e cadastrar o app no celular novo. São 10 códigos e cada um vale uma vez.
+          </p>
+        }
+      />
       <SignOutLink onSignOut={onSignOut} />
     </CenteredCard>
   );

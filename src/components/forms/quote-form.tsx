@@ -14,6 +14,7 @@ import { maskPhone } from "@/lib/utils";
 import { useWhatsAppUrl } from "@/hooks/use-site-content";
 import { ApiError, submitLead } from "@/services/api-client";
 import { saveDemoLead } from "@/hooks/use-demo-leads";
+import { Turnstile } from "./turnstile";
 import { SelectField, TextField, TextareaField } from "./fields";
 import { Button, ButtonLink } from "@/components/ui/button";
 
@@ -34,6 +35,9 @@ export interface QuoteFormDefaults {
 export function QuoteForm({ defaults = {}, source = "orcamento" }: { defaults?: QuoteFormDefaults; source?: LeadSource }) {
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [serverError, setServerError] = useState<string | null>(null);
+  // "Não sou robô": token de uso único, renovado depois de cada tentativa.
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
   const whatsappHref = useWhatsAppUrl("Olá! Acabei de enviar uma solicitação de orçamento pelo site.");
 
   const {
@@ -66,7 +70,7 @@ export function QuoteForm({ defaults = {}, source = "orcamento" }: { defaults?: 
   async function onSubmit(data: LeadFormData) {
     setServerError(null);
     try {
-      const { lead } = await submitLead({ ...data, source });
+      const { lead } = await submitLead({ ...data, source }, captchaToken);
       if (lead) saveDemoLead(lead);
       setStatus("success");
       reset();
@@ -79,6 +83,8 @@ export function QuoteForm({ defaults = {}, source = "orcamento" }: { defaults?: 
       }
       setServerError(error instanceof Error ? error.message : "Não foi possível enviar. Tente novamente.");
       setStatus("error");
+    } finally {
+      setCaptchaReset((value) => value + 1);
     }
   }
 
@@ -193,7 +199,11 @@ export function QuoteForm({ defaults = {}, source = "orcamento" }: { defaults?: 
         )}
       </div>
 
-      <Button type="submit" size="lg" className="mt-10" disabled={isSubmitting}>
+      <div className="mt-10">
+        <Turnstile onToken={setCaptchaToken} resetKey={captchaReset} />
+      </div>
+
+      <Button type="submit" size="lg" className="mt-6" disabled={isSubmitting}>
         {isSubmitting ? <LoaderCircle className="size-5 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />}
         {isSubmitting ? "Enviando…" : "Enviar solicitação"}
       </Button>

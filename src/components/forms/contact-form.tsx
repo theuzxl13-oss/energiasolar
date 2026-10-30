@@ -12,12 +12,16 @@ import { SERVICE_TYPES } from "@/types";
 import { maskPhone } from "@/lib/utils";
 import { ApiError, submitContact } from "@/services/api-client";
 import { saveDemoLead } from "@/hooks/use-demo-leads";
+import { Turnstile } from "./turnstile";
 import { SelectField, TextField, TextareaField } from "./fields";
 import { Button } from "@/components/ui/button";
 
 export function ContactForm() {
   const [sent, setSent] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  // "Não sou robô": token de uso único, renovado depois de cada tentativa.
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
   const {
     register,
     handleSubmit,
@@ -44,7 +48,7 @@ export function ContactForm() {
   async function onSubmit(data: ContactFormData) {
     setServerError(null);
     try {
-      const { lead } = await submitContact(data);
+      const { lead } = await submitContact(data, captchaToken);
       if (lead) saveDemoLead(lead);
       setSent(true);
       reset();
@@ -55,6 +59,8 @@ export function ContactForm() {
         }
       }
       setServerError(error instanceof Error ? error.message : "Não foi possível enviar.");
+    } finally {
+      setCaptchaReset((value) => value + 1);
     }
   }
 
@@ -129,6 +135,10 @@ export function ContactForm() {
           </span>
         </label>
         {errors.consent?.message && <p role="alert" className="mt-1.5 text-xs text-rose-400">{errors.consent.message}</p>}
+      </div>
+
+      <div className="sm:col-span-2">
+        <Turnstile onToken={setCaptchaToken} resetKey={captchaReset} />
       </div>
 
       <Button type="submit" size="lg" disabled={isSubmitting} className="justify-self-start sm:col-span-2">

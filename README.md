@@ -260,6 +260,30 @@ Não há certificações, parceiros, clientes ou números apresentados como verd
 
 ---
 
+## Segurança e operação (Cloudflare + Supabase)
+
+O site publicado é estático e roda na Cloudflare (`wrangler.jsonc`). As rotas `/api/*` passam pelo Worker (`worker/`), que guarda as chaves secretas.
+
+**Segredos na Cloudflare** (Workers & Pages → dc-eco-energy → Settings → Variables and Secrets, sempre do tipo *Secret*):
+
+| Segredo | Para quê | Onde conseguir |
+|---|---|---|
+| `GEMINI_API_KEY` | IA do chat | aistudio.google.com → Get API key |
+| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | “Não sou robô” nos formulários | Cloudflare → Turnstile → Add widget |
+| `LEAD_SUBMIT_SECRET`, `BACKUP_SECRET` | O Worker gravar leads e exportar o backup | Supabase → SQL: `select name, value from private.app_secrets;` |
+| `RESEND_API_KEY`, `BACKUP_EMAIL` | Backup mensal por e-mail (dia 1º, 9h) | resend.com → API Keys (o e-mail precisa ser o da conta Resend) |
+
+A tela **Painel → Configurações** mostra o que está ativo e tem o botão “Enviar backup agora”.
+
+**Proteções**:
+
+- **Painel:** senha + verificação em duas etapas (app Senhas do iPhone, Google Authenticator), mais 10 códigos reserva para o caso de celular perdido.
+- **Banco:** regras de acesso (RLS). Sem a segunda etapa, nenhum dado é lido. Contas criadas por conta própria nascem inativas.
+- **Leads:** travas anti-spam no banco. Depois de ativar o Turnstile, rode a “ETAPA FINAL” no fim de `supabase/schema.sql` para aceitar leads só pelo Worker.
+- **Cabeçalhos de segurança e CSP:** `public/_headers`. Ao adicionar um serviço externo, libere o domínio na CSP.
+
+**Celular perdido sem códigos reserva:** um admin com acesso ao SQL do Supabase roda `delete from auth.mfa_factors where user_id = (select id from auth.users where email = 'email-da-pessoa');`, e a pessoa cadastra o app de novo no próximo login.
+
 ## Checklist antes de ir para produção
 
 - [ ] Dados reais em `src/config/site.ts` (nome, CNPJ, contatos, endereço, redes) e logo em `public/`
