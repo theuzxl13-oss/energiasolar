@@ -242,8 +242,8 @@ function ContentForm({
                 onChange={(event) => updateIn("address", { state: event.target.value.toUpperCase() })}
               />
             </Field>
-            <Field label="Link do Google Maps (opcional)" className="sm:col-span-6" hint="Deixe em branco para esconder o botão “Ver no mapa”.">
-              <input className={inputClass} value={draft.address.mapsUrl} onChange={(event) => updateIn("address", { mapsUrl: event.target.value })} />
+            <Field label="Link do Google Maps (opcional)" className="sm:col-span-6" hint="Link completo, começando com https://. Deixe em branco para esconder o botão “Ver no mapa”.">
+              <input className={inputClass} placeholder="https://" value={draft.address.mapsUrl} onChange={(event) => updateIn("address", { mapsUrl: event.target.value })} />
             </Field>
             <Field label="Área de atendimento" className="sm:col-span-6">
               <input className={inputClass} value={draft.serviceArea} onChange={(event) => update({ serviceArea: event.target.value })} />
@@ -298,7 +298,7 @@ function ContentForm({
             </ul>
           </Panel>
 
-          <Panel title="Redes sociais" description="Cole o link completo do perfil. Deixe em branco para esconder o ícone.">
+          <Panel title="Redes sociais" description="Cole o link completo do perfil, começando com https://. Deixe em branco para esconder o ícone.">
             <div className="grid gap-4">
               {(["instagram", "facebook", "linkedin", "youtube"] as const).map((network) => (
                 <Field key={network} label={{ instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", youtube: "YouTube" }[network]}>

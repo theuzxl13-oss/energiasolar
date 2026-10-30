@@ -10,9 +10,9 @@ const isStaticExport = process.env.STATIC_EXPORT === "true";
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || undefined;
 
 /**
- * Cabeçalhos de segurança aplicados a todas as rotas.
- * Uma Content-Security-Policy completa deve ser adicionada quando os domínios
- * de terceiros definitivos (analytics, mapas, avaliações) forem conhecidos.
+ * Cabeçalhos de segurança aplicados a todas as rotas (só no modo servidor).
+ * No site estático (Cloudflare), os cabeçalhos — incluindo a CSP — ficam em
+ * `public/_headers`; mantenha os dois alinhados.
  */
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
