@@ -20,8 +20,20 @@ interface Env {
 
 const DEFAULT_MODEL = "gemini-flash-latest";
 
+/** Tamanho máximo do corpo do chat (12 mensagens de até 1.500 caracteres cabem com folga). */
+const MAX_BODY_BYTES = 64 * 1024;
+
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
+  new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+      "Referrer-Policy": "no-referrer",
+    },
+  });
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -58,9 +70,11 @@ async function chatStatus(request: Request, env: Env) {
 }
 
 async function handleChat(request: Request, env: Env) {
-  // Só aceita chamadas do próprio site.
+  // Só aceita chamadas do próprio site (navegadores sempre enviam Origin em POST).
   const origin = request.headers.get("Origin");
-  if (origin && origin !== new URL(request.url).origin) return json({ error: "Origem não permitida." }, 403);
+  if (!origin || origin !== new URL(request.url).origin) return json({ error: "Origem não permitida." }, 403);
+  if (!request.headers.get("Content-Type")?.includes("application/json")) return json({ error: "Formato inválido." }, 415);
+  if (Number(request.headers.get("Content-Length") ?? 0) > MAX_BODY_BYTES) return json({ error: "Mensagem muito grande." }, 413);
 
   if (!env.GEMINI_API_KEY) return json({ error: "IA não configurada." }, 503);
 
@@ -69,7 +83,15 @@ async function handleChat(request: Request, env: Env) {
     return json({ error: "Muitas mensagens em pouco tempo. Aguarde um instante." }, 429);
   }
 
-  const parsed = chatRequestSchema.safeParse(await request.json().catch(() => null));
+  const raw = await request.text().catch(() => "");
+  if (raw.length > MAX_BODY_BYTES) return json({ error: "Mensagem muito grande." }, 413);
+  let body: unknown = null;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    /* inválido: o schema recusa abaixo */
+  }
+  const parsed = chatRequestSchema.safeParse(body);
   if (!parsed.success) return json({ error: "Mensagem inválida." }, 400);
 
   // Só o histórico recente, para controlar consumo da cota.

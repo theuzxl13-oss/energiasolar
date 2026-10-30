@@ -10,6 +10,7 @@ import {
   CONTENT_KEYS,
   mergeSiteSettings,
   remoteContent,
+  safeUrl,
   writeContent,
   whatsappUrl,
   type SiteSettings,
@@ -178,7 +179,13 @@ export function useProjects() {
 }
 
 export function useSolutions() {
-  return useContentList<Solution>(CONTENT_KEYS.solutions, defaultSolutions);
+  const list = useContentList<Solution>(CONTENT_KEYS.solutions, defaultSolutions);
+  // Links editados no painel passam pelo mesmo filtro dos dados da empresa.
+  const items = useMemo(
+    () => list.items.map((item) => ({ ...item, href: safeUrl(item.href), cta: { ...item.cta, href: safeUrl(item.cta.href) } })),
+    [list.items],
+  );
+  return { ...list, items };
 }
 
 export function useFaq() {

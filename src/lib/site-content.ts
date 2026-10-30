@@ -112,16 +112,32 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   stats: companyStats.map((stat) => ({ ...stat })),
 };
 
+/**
+ * Só aceita links http(s), mailto:, tel: e caminhos internos ("/..."); qualquer
+ * outro (ex.: "javascript:") vira "" e o link não aparece. Proteção extra para
+ * links editados no painel.
+ */
+export function safeUrl(value: string | null | undefined) {
+  const url = (value ?? "").trim();
+  return /^(https?:\/\/|mailto:|tel:|\/(?![\/\\]))/i.test(url) ? url : "";
+}
+
 /** Completa um registro salvo com os padrões (campos novos continuam funcionando). */
 export function mergeSiteSettings(saved: Partial<SiteSettings> | null): SiteSettings {
   if (!saved) return DEFAULT_SITE_SETTINGS;
   const base = DEFAULT_SITE_SETTINGS;
+  const social = { ...base.social, ...saved.social };
   return {
     ...base,
     ...saved,
     contact: { ...base.contact, ...saved.contact },
-    address: { ...base.address, ...saved.address },
-    social: { ...base.social, ...saved.social },
+    address: { ...base.address, ...saved.address, mapsUrl: safeUrl(saved.address?.mapsUrl ?? base.address.mapsUrl) },
+    social: {
+      instagram: safeUrl(social.instagram),
+      facebook: safeUrl(social.facebook),
+      linkedin: safeUrl(social.linkedin),
+      youtube: safeUrl(social.youtube),
+    },
     businessHours: saved.businessHours ?? base.businessHours,
     stats: saved.stats ?? base.stats,
   };

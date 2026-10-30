@@ -92,6 +92,32 @@ create index if not exists leads_created_at_idx on public.leads (created_at desc
 drop trigger if exists leads_updated_at on public.leads;
 create trigger leads_updated_at before update on public.leads for each row execute function public.set_updated_at();
 
+-- Leads enviados pelo site (visitante anônimo): o banco fixa os campos de
+-- controle e freia spam, mesmo que alguém chame a API sem passar pelo formulário.
+create index if not exists leads_email_created_idx on public.leads (lower(email), created_at desc);
+create or replace function public.guard_new_lead() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if public.is_staff() then return new; end if;
+  new.status := 'novo';
+  new.created_at := now();
+  new.updated_at := now();
+  if new.metadata is not null and pg_column_size(new.metadata) > 4096 then
+    raise exception 'Dados extras muito grandes.' using errcode = '22023';
+  end if;
+  -- Mesmo e-mail: no máximo 3 envios por hora.
+  if (select count(*) from public.leads where lower(email) = lower(new.email) and created_at > now() - interval '1 hour') >= 3 then
+    raise exception 'Muitos envios. Tente novamente mais tarde.' using errcode = 'P0001';
+  end if;
+  -- Freio geral contra robôs: no máximo 200 envios em 10 minutos.
+  if (select count(*) from public.leads where created_at > now() - interval '10 minutes') >= 200 then
+    raise exception 'Muitos envios. Tente novamente mais tarde.' using errcode = 'P0001';
+  end if;
+  return new;
+end $$;
+drop trigger if exists guard_new_lead on public.leads;
+create trigger guard_new_lead before insert on public.leads for each row execute function public.guard_new_lead();
+
 -- -----------------------------------------------------------------------------
 -- Orçamentos e contratos (documento completo em JSON + colunas para listagem)
 -- -----------------------------------------------------------------------------
