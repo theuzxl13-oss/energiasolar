@@ -77,7 +77,7 @@ export function Footer() {
           <p>
             © {year} {settings.legalName} · CNPJ {settings.cnpj}
           </p>
-          {isDemoMode && <p className="text-spark/80">Versão demonstrativa — dados institucionais, indicadores, projetos e depoimentos são ilustrativos.</p>}
+          {isDemoMode && <p className="text-spark/80">Versão demonstrativa — dados institucionais, indicadores e projetos são ilustrativos.</p>}
         </div>
       </Container>
     </footer>

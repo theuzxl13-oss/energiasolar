@@ -128,7 +128,7 @@ src/
 ├── services/
 │   ├── leads/                  # Repositório: interface + memória + Supabase
 │   ├── ai/                     # Provedores de chat: demo + Anthropic
-│   ├── reviews/                # Depoimentos demo ou Google Places
+│   ├── reviews/                # Depoimentos autorizados ou Google Places
 │   └── api-client.ts           # Cliente HTTP do frontend para /api/*
 ├── hooks/                      # use-demo-leads (armazenamento local da demonstração)
 ├── types/                      # Tipos de domínio
