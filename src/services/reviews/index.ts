@@ -1,5 +1,5 @@
 import "server-only";
-import { demoTestimonials } from "@/data/testimonials";
+import { authorizedTestimonials } from "@/data/testimonials";
 import { serverEnv } from "@/lib/env";
 import type { Testimonial } from "@/types";
 
@@ -15,11 +15,13 @@ interface GooglePlaceReview {
  * Retorna os depoimentos exibidos no site.
  * Se GOOGLE_PLACES_API_KEY e GOOGLE_PLACE_ID estiverem configurados, busca
  * as avaliações reais do Google (Places API New) com cache de 24h;
- * caso contrário, usa os depoimentos demonstrativos.
+ * caso contrário, usa os depoimentos autorizados de `src/data/testimonials.ts`
+ * (lista vazia = seção oculta no site).
  */
-export async function getTestimonials(): Promise<{ testimonials: Testimonial[]; source: "demo" | "google" }> {
+export async function getTestimonials(): Promise<{ testimonials: Testimonial[]; source: "manual" | "google" }> {
   const { googlePlacesApiKey, googlePlaceId } = serverEnv();
-  if (!googlePlacesApiKey || !googlePlaceId) return { testimonials: demoTestimonials, source: "demo" };
+  const fallback = { testimonials: authorizedTestimonials, source: "manual" as const };
+  if (!googlePlacesApiKey || !googlePlaceId) return fallback;
 
   try {
     const response = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(googlePlaceId)}?languageCode=pt-BR`, {
@@ -42,9 +44,9 @@ export async function getTestimonials(): Promise<{ testimonials: Testimonial[]; 
         source: "google",
       }));
 
-    return testimonials.length ? { testimonials, source: "google" } : { testimonials: demoTestimonials, source: "demo" };
+    return testimonials.length ? { testimonials, source: "google" } : fallback;
   } catch (error) {
     console.error("[reviews] Falha ao buscar avaliações:", error instanceof Error ? error.message : error);
-    return { testimonials: demoTestimonials, source: "demo" };
+    return fallback;
   }
 }

@@ -1,22 +1,19 @@
 import { getTestimonials } from "@/services/reviews";
-import { Container, DemoBadge, Section, SectionHeading } from "@/components/ui/primitives";
+import { Container, Section, SectionHeading } from "@/components/ui/primitives";
 import { Reveal } from "@/components/ui/reveal";
 
 export async function TestimonialsSection() {
-  const { testimonials, source } = await getTestimonials();
-  const isDemo = source === "demo";
+  const { testimonials } = await getTestimonials();
+  // Sem depoimentos reais, a seção não aparece.
+  if (!testimonials.length) return null;
 
   return (
     <Section id="depoimentos">
       <Container>
         <SectionHeading
-          eyebrow={isDemo ? "Depoimentos demonstrativos" : "Avaliações"}
+          eyebrow="Avaliações"
           title="O que nossos clientes dizem."
-          description={
-            isDemo
-              ? "Área preparada para avaliações reais (Google ou depoimentos autorizados). Os textos abaixo são apenas ilustrativos."
-              : "Avaliações de clientes atendidos pela nossa equipe."
-          }
+          description="Avaliações de clientes atendidos pela nossa equipe."
         />
         <ul className="mt-20 grid gap-x-10 gap-y-14 md:grid-cols-3">
           {testimonials.map((testimonial, index) => (
@@ -30,7 +27,6 @@ export async function TestimonialsSection() {
                 <figcaption className="mt-8">
                   <span className="block text-white">{testimonial.author}</span>
                   <span className="label-caps mt-1 block text-brand-400">{testimonial.role}</span>
-                  {testimonial.source === "demo" && <DemoBadge label="Depoimento demonstrativo" className="mt-4" />}
                 </figcaption>
               </figure>
             </Reveal>
