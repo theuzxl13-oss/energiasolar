@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { LoaderCircle, LogOut, ShieldAlert } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
-import { getMfaStatus, MfaChallenge, MfaEnroll } from "./mfa";
+import { getMfaStatus, MfaChallenge, MfaEnroll, recoveryCodesRemaining, RecoveryCodesSetup } from "./mfa";
 
 /**
  * Login do painel com Supabase Auth.
@@ -46,6 +46,7 @@ type State =
   | { status: "signed-out" }
   | { status: "no-access"; email: string }
   | { status: "mfa"; step: "challenge" | "enroll" }
+  | { status: "recovery-codes"; profile: AdminProfile }
   | { status: "signed-in"; profile: AdminProfile };
 
 async function loadProfile(session: Session): Promise<State> {
@@ -53,7 +54,10 @@ async function loadProfile(session: Session): Promise<State> {
   if (error || !data || !data.active) return { status: "no-access", email: session.user.email ?? "" };
   const mfa = await getMfaStatus();
   if (mfa !== "ok") return { status: "mfa", step: mfa };
-  return { status: "signed-in", profile: { id: data.id, email: data.email, fullName: data.full_name, role: data.role, active: data.active } };
+  const profile = { id: data.id, email: data.email, fullName: data.full_name, role: data.role, active: data.active };
+  // Sem códigos reserva ainda: pede para gerar (0). `null` = banco sem o recurso, segue.
+  if ((await recoveryCodesRemaining()) === 0) return { status: "recovery-codes", profile };
+  return { status: "signed-in", profile };
 }
 
 export function AdminAuthGate({ children }: { children: React.ReactNode }) {
@@ -132,6 +136,11 @@ function SupabaseAuthGate({ children }: { children: React.ReactNode }) {
       setState(data.session ? await loadProfile(data.session) : { status: "signed-out" });
     };
     return state.step === "enroll" ? <MfaEnroll onDone={() => void recheck()} onSignOut={signOut} /> : <MfaChallenge onDone={() => void recheck()} onSignOut={signOut} />;
+  }
+
+  if (state.status === "recovery-codes") {
+    const { profile } = state;
+    return <RecoveryCodesSetup onDone={() => setState({ status: "signed-in", profile })} onSignOut={signOut} />;
   }
 
   if (state.status !== "signed-in") {

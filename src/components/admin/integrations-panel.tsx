@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CircleCheck, CircleDashed } from "lucide-react";
+import { CircleCheck, CircleDashed, LoaderCircle, Mail } from "lucide-react";
 import { useSiteSettings } from "@/hooks/use-site-content";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import { recoveryCodesRemaining, RecoveryCodesPanel } from "./auth/mfa";
 import { Panel } from "./ui";
 
 /** Status das integrações. Nunca mostra valores secretos. */
 export function IntegrationsPanel({ ai, googleReviews }: { ai: { active: boolean; detail: string }; googleReviews: boolean }) {
   const { settings } = useSiteSettings();
   const aiStatus = useAiStatus(ai);
+  const server = useServerStatus();
   const whatsapp = settings.contact.whatsappDisplay;
   const whatsappSet = /\d/.test(whatsapp) && !/^[\s()0-]+$/.test(whatsapp);
 
@@ -35,6 +37,21 @@ export function IntegrationsPanel({ ai, googleReviews }: { ai: { active: boolean
     },
     { name: "Inteligência Artificial (chat)", active: aiStatus.active, detail: aiStatus.detail },
     {
+      name: "“Não sou robô” nos formulários",
+      active: server?.leadsViaServer === true,
+      detail: server?.leadsViaServer
+        ? "Formulários conferidos pelo Cloudflare Turnstile antes de gravar o lead."
+        : "Não configurado. Cadastre TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY e LEAD_SUBMIT_SECRET na Cloudflare.",
+    },
+    {
+      name: "Backup mensal por e-mail",
+      active: server?.backup === true,
+      detail: server?.backup
+        ? "Todo dia 1º, leads, orçamentos, contratos e conteúdo do site são enviados por e-mail."
+        : "Não configurado. Cadastre BACKUP_SECRET, RESEND_API_KEY e BACKUP_EMAIL na Cloudflare.",
+      action: server?.backup ? <BackupNowButton /> : null,
+    },
+    {
       name: "Avaliações do Google",
       active: googleReviews,
       detail: googleReviews
@@ -44,7 +61,8 @@ export function IntegrationsPanel({ ai, googleReviews }: { ai: { active: boolean
   ];
 
   return (
-    <Panel title="Integrações">
+    <>
+      <Panel title="Integrações">
       <ul className="divide-y divide-slate-100">
         {integrations.map((integration) => (
           <li key={integration.name} className="flex items-start gap-3 py-4">
@@ -56,11 +74,14 @@ export function IntegrationsPanel({ ai, googleReviews }: { ai: { active: boolean
             <div>
               <p className="font-semibold text-night-900">{integration.name}</p>
               <p className="text-sm text-slate-500">{integration.detail}</p>
+              {"action" in integration && integration.action}
             </div>
           </li>
         ))}
       </ul>
-    </Panel>
+      </Panel>
+      {isSupabaseConfigured && <RecoveryCodesSection />}
+    </>
   );
 }
 
@@ -103,4 +124,81 @@ function useAiStatus(fallback: { active: boolean; detail: string }) {
   }, []);
 
   return status;
+}
+
+/** O que está configurado no servidor (Cloudflare Worker). `null` enquanto carrega ou sem servidor. */
+function useServerStatus() {
+  const [status, setStatus] = useState<{ leadsViaServer: boolean; backup: boolean } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/status", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => !cancelled && data && setStatus(data))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return status;
+}
+
+function BackupNowButton() {
+  const [state, setState] = useState<{ busy: boolean; message?: string; ok?: boolean }>({ busy: false });
+
+  async function send() {
+    setState({ busy: true });
+    const { data } = await getSupabase().auth.getSession();
+    const response = await fetch("/api/backup/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session?.access_token ?? ""}` },
+      body: "{}",
+    }).catch(() => null);
+    const body = (await response?.json().catch(() => null)) as { error?: string; counts?: { leads: number } } | null;
+    setState(
+      response?.ok
+        ? { busy: false, ok: true, message: `Backup enviado (${body?.counts?.leads ?? 0} leads). Confira seu e-mail.` }
+        : { busy: false, ok: false, message: body?.error ?? "Não foi possível enviar o backup." },
+    );
+  }
+
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={send}
+        disabled={state.busy}
+        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-60"
+      >
+        {state.busy ? <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" /> : <Mail className="size-3.5" aria-hidden="true" />} Enviar backup agora
+      </button>
+      {state.message && <p className={`mt-1 text-xs ${state.ok ? "text-brand-700" : "text-rose-700"}`}>{state.message}</p>}
+    </div>
+  );
+}
+
+function RecoveryCodesSection() {
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    void recoveryCodesRemaining().then(setRemaining);
+  }, [open]);
+
+  return (
+    <Panel title="Códigos reserva (celular perdido)">
+      <p className="text-sm text-slate-600">
+        {remaining === null
+          ? "Recurso ainda não ativado no banco de dados."
+          : `Você tem ${remaining} de 10 códigos reserva sem usar.${remaining <= 3 ? " Gere códigos novos." : ""}`}
+      </p>
+      {remaining !== null &&
+        (open ? (
+          <RecoveryCodesPanel intro={<p className="mt-2 text-sm text-slate-500">Ao gerar códigos novos, os antigos deixam de valer.</p>} />
+        ) : (
+          <button type="button" onClick={() => setOpen(true)} className="mt-3 text-sm font-semibold text-brand-700 hover:underline">
+            Gerar códigos novos
+          </button>
+        ))}
+    </Panel>
+  );
 }

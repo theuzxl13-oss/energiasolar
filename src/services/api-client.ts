@@ -1,7 +1,7 @@
 import type { ChatMessage, Lead } from "@/types";
-import { contactFormSchema, leadApiSchema, type ContactFormInput, type LeadApiPayload } from "@/lib/validations/lead";
+import type { ContactFormInput, LeadApiPayload } from "@/lib/validations/lead";
+import { buildContactLead, buildLead } from "@/lib/leads/build";
 import { demoChatProvider } from "@/services/ai/demo-provider";
-import { generateId } from "@/lib/utils";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { insertLead } from "@/lib/supabase/leads";
 
@@ -11,8 +11,9 @@ import { insertLead } from "@/lib/supabase/leads";
  *
  * Quando NEXT_PUBLIC_STATIC_DEMO=true (build estático, ex.: GitHub Pages,
  * onde não existem rotas de servidor), as mesmas operações são resolvidas no
- * navegador com as MESMAS validações. Com o Supabase configurado, os leads
- * são gravados no banco; sem ele, ficam só neste navegador (demonstração).
+ * navegador ou no Cloudflare Worker, com as MESMAS validações. Com o Supabase
+ * configurado, os leads são gravados no banco; sem ele, ficam só neste
+ * navegador (demonstração).
  */
 const STATIC_DEMO = process.env.NEXT_PUBLIC_STATIC_DEMO === "true";
 
@@ -43,46 +44,43 @@ function validationError(fieldErrors: Record<string, string[] | undefined>) {
   return new ApiError("Verifique os campos do formulário.", 422, fieldErrors as Record<string, string[]>);
 }
 
-function localLead(payload: LeadApiPayload): Lead {
-  const parsed = leadApiSchema.safeParse(payload);
-  if (!parsed.success) throw validationError(parsed.error.flatten().fieldErrors);
-  const { consent: _consent, website: _website, ...data } = parsed.data;
-  return { ...data, id: generateId("lead"), status: "novo", createdAt: new Date().toISOString(), metadata: { ...data.metadata, demo: true } };
+interface LeadsConfig {
+  enabled: boolean;
+  siteKey: string | null;
 }
 
-function localContact(payload: ContactFormInput): Lead {
-  const parsed = contactFormSchema.safeParse(payload);
-  if (!parsed.success) throw validationError(parsed.error.flatten().fieldErrors);
-  const { consent: _consent, website: _website, subject, ...data } = parsed.data;
-  return {
-    ...data,
-    service: subject,
-    clientType: null,
-    propertyType: null,
-    averageBill: null,
-    evCount: null,
-    source: "contato",
-    id: generateId("lead"),
-    status: "novo",
-    createdAt: new Date().toISOString(),
-    metadata: { demo: true },
-  };
+let leadsConfig: Promise<LeadsConfig> | null = null;
+
+/**
+ * Site estático: o servidor (Cloudflare Worker) diz se o "não sou robô" está
+ * ativo. Se estiver, os formulários enviam por ele; senão, direto ao banco.
+ */
+export function getLeadsConfig(): Promise<LeadsConfig> {
+  leadsConfig ??= fetch("/api/leads/config", { cache: "no-store" })
+    .then((response) => (response.ok ? (response.json() as Promise<LeadsConfig>) : null))
+    .then((config) => (config && typeof config.enabled === "boolean" ? config : { enabled: false, siteKey: null }))
+    .catch(() => ({ enabled: false, siteKey: null }));
+  return leadsConfig;
 }
 
-/** Site estático: grava no Supabase quando configurado (sem a marca de demonstração). */
-async function storeLocalLead(lead: Lead) {
-  if (!isSupabaseConfigured) return lead;
-  const { demo: _demo, ...metadata } = lead.metadata ?? {};
-  return insertLead({ ...lead, metadata: Object.keys(metadata).length ? metadata : undefined });
+async function submitStatic(kind: "lead" | "contact", payload: LeadApiPayload | ContactFormInput, token?: string | null) {
+  if ((await getLeadsConfig()).enabled) {
+    return postJson<{ lead: Lead }>("/api/leads", { kind, payload, token: token ?? "" });
+  }
+  const built = kind === "contact" ? buildContactLead(payload as ContactFormInput) : buildLead(payload as LeadApiPayload);
+  if (!built.ok) throw validationError(built.fieldErrors);
+  // Sem Supabase (demonstração), o lead fica só neste navegador.
+  if (!isSupabaseConfigured) return { lead: { ...built.lead, metadata: { ...built.lead.metadata, demo: true } } };
+  return { lead: await insertLead(built.lead) };
 }
 
-export async function submitLead(payload: LeadApiPayload) {
-  if (STATIC_DEMO) return { lead: await storeLocalLead(localLead(payload)) };
+export async function submitLead(payload: LeadApiPayload, turnstileToken?: string | null) {
+  if (STATIC_DEMO) return submitStatic("lead", payload, turnstileToken);
   return postJson<{ lead: Lead }>("/api/leads", payload);
 }
 
-export async function submitContact(payload: ContactFormInput) {
-  if (STATIC_DEMO) return { lead: await storeLocalLead(localContact(payload)) };
+export async function submitContact(payload: ContactFormInput, turnstileToken?: string | null) {
+  if (STATIC_DEMO) return submitStatic("contact", payload, turnstileToken);
   return postJson<{ lead: Lead }>("/api/contact", payload);
 }
 

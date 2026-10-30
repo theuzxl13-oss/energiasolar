@@ -1,4 +1,5 @@
 import type { Lead, LeadStatus } from "@/types";
+import { leadToRow } from "@/lib/leads/build";
 import { getSupabase } from "./client";
 
 /**
@@ -48,27 +49,11 @@ function toLead(row: LeadRow): Lead {
   };
 }
 
-/** Grava um lead enviado pelo site. O id é gerado aqui porque o visitante não pode ler a linha criada. */
+/** Grava um lead enviado pelo site direto no banco (antes da etapa final do "não sou robô"). */
 export async function insertLead(lead: Lead): Promise<Lead> {
-  const id = crypto.randomUUID();
-  const { error } = await getSupabase().from("leads").insert({
-    id,
-    name: lead.name,
-    phone: lead.phone,
-    email: lead.email,
-    city: lead.city,
-    state: lead.state,
-    client_type: lead.clientType,
-    service: lead.service,
-    property_type: lead.propertyType,
-    average_bill: lead.averageBill,
-    ev_count: lead.evCount,
-    message: lead.message,
-    source: lead.source,
-    metadata: lead.metadata ?? null,
-  });
+  const { error } = await getSupabase().from("leads").insert(leadToRow(lead));
   if (error) throw new Error("Não foi possível enviar agora. Tente novamente ou fale conosco pelo WhatsApp.");
-  return { ...lead, id };
+  return lead;
 }
 
 export async function fetchLeads(): Promise<Lead[]> {

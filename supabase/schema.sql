@@ -298,6 +298,145 @@ create policy "admin altera fotos de projetos" on storage.objects for update to 
 create policy "admin remove fotos de projetos" on storage.objects for delete to authenticated using (bucket_id = 'projects' and public.is_admin());
 
 -- -----------------------------------------------------------------------------
+-- Segredos do servidor (Cloudflare Worker). O esquema `private` não é exposto
+-- pela API do Supabase: só funções do banco leem esses valores.
+--   select name, value from private.app_secrets;  → copiar para a Cloudflare
+-- -----------------------------------------------------------------------------
+create schema if not exists private;
+revoke all on schema private from public, anon, authenticated;
+create table if not exists private.app_secrets (name text primary key, value text not null);
+insert into private.app_secrets (name, value) values
+  ('LEAD_SUBMIT_SECRET', encode(sha256(convert_to(gen_random_uuid()::text || gen_random_uuid()::text || clock_timestamp()::text, 'UTF8')), 'hex')),
+  ('BACKUP_SECRET',      encode(sha256(convert_to(gen_random_uuid()::text || gen_random_uuid()::text || clock_timestamp()::text, 'UTF8')), 'hex'))
+on conflict (name) do nothing;
+
+create or replace function private.secret_ok(secret_name text, candidate text) returns boolean
+language sql stable security definer set search_path = private as $$
+  select candidate is not null and length(candidate) >= 32
+     and candidate = (select value from private.app_secrets where name = secret_name);
+$$;
+
+-- Leads do site enviados pelo Worker (depois de conferir o "não sou robô").
+create or replace function public.submit_lead(lead jsonb, secret text) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare new_id uuid;
+begin
+  if not private.secret_ok('LEAD_SUBMIT_SECRET', secret) then
+    raise exception 'Não autorizado.' using errcode = '42501';
+  end if;
+  insert into public.leads (id, name, phone, email, city, state, client_type, service, property_type, average_bill, ev_count, message, source, metadata)
+  values (
+    coalesce(nullif(lead ->> 'id', '')::uuid, gen_random_uuid()),
+    lead ->> 'name', lead ->> 'phone', lead ->> 'email', lead ->> 'city', lead ->> 'state',
+    lead ->> 'client_type', lead ->> 'service', lead ->> 'property_type',
+    nullif(lead ->> 'average_bill', '')::numeric, nullif(lead ->> 'ev_count', '')::integer,
+    coalesce(lead ->> 'message', ''), coalesce(lead ->> 'source', 'orcamento'), lead -> 'metadata'
+  )
+  returning id into new_id;
+  return new_id;
+end $$;
+revoke all on function public.submit_lead(jsonb, text) from public;
+grant execute on function public.submit_lead(jsonb, text) to anon, authenticated;
+
+-- Backup mensal enviado pelo Worker por e-mail.
+create or replace function public.export_backup(secret text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+begin
+  if not private.secret_ok('BACKUP_SECRET', secret) then
+    raise exception 'Não autorizado.' using errcode = '42501';
+  end if;
+  return jsonb_build_object(
+    'generated_at', now(),
+    'leads',        coalesce((select jsonb_agg(to_jsonb(l) order by l.created_at desc) from public.leads l), '[]'::jsonb),
+    'quotes',       coalesce((select jsonb_agg(to_jsonb(q) order by q.number) from public.quotes q), '[]'::jsonb),
+    'contracts',    coalesce((select jsonb_agg(to_jsonb(c) order by c.number) from public.contracts c), '[]'::jsonb),
+    'site_content', coalesce((select jsonb_agg(to_jsonb(s)) from public.site_content s), '[]'::jsonb),
+    'profiles',     coalesce((select jsonb_agg(jsonb_build_object('email', p.email, 'role', p.role, 'active', p.active)) from public.profiles p), '[]'::jsonb)
+  );
+end $$;
+revoke all on function public.export_backup(text) from public;
+grant execute on function public.export_backup(text) to anon, authenticated;
+
+-- -----------------------------------------------------------------------------
+-- Códigos reserva da verificação em duas etapas (celular perdido).
+-- 10 códigos de uso único; o banco guarda só o hash (SHA-256).
+-- Usar um código apaga o cadastro do app antigo para cadastrar o celular novo.
+-- -----------------------------------------------------------------------------
+create table if not exists private.recovery_codes (
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  code_hash  text not null,
+  used_at    timestamptz,
+  created_at timestamptz not null default now(),
+  primary key (user_id, code_hash)
+);
+create table if not exists private.recovery_failures (
+  user_id uuid not null,
+  at      timestamptz not null default now()
+);
+
+create or replace function private.recovery_hash(code text) returns text
+language sql immutable as $$
+  select encode(sha256(convert_to(lower(regexp_replace(coalesce(code, ''), '[^0-9a-zA-Z]', '', 'g')), 'UTF8')), 'hex');
+$$;
+
+-- Gera (ou troca) os códigos. Exige sessão com a segunda etapa (aal2).
+create or replace function public.generate_recovery_codes() returns text[]
+language plpgsql security definer set search_path = public, private as $$
+declare codes text[] := '{}'; raw text;
+begin
+  if not public.is_staff() then
+    raise exception 'Confirme o código do app antes de gerar códigos reserva.' using errcode = '42501';
+  end if;
+  delete from private.recovery_codes where user_id = auth.uid();
+  for i in 1..10 loop
+    raw := substr(replace(gen_random_uuid()::text, '-', ''), 1, 16);
+    insert into private.recovery_codes (user_id, code_hash) values (auth.uid(), private.recovery_hash(raw));
+    codes := codes || (substr(raw, 1, 4) || '-' || substr(raw, 5, 4) || '-' || substr(raw, 9, 4) || '-' || substr(raw, 13, 4));
+  end loop;
+  return codes;
+end $$;
+
+create or replace function public.recovery_codes_remaining() returns integer
+language sql stable security definer set search_path = public, private as $$
+  select count(*)::integer from private.recovery_codes where user_id = auth.uid() and used_at is null;
+$$;
+
+-- Usa um código reserva: exige login com senha (aal1), apaga o app antigo e
+-- a pessoa cadastra o celular novo em seguida. Máx. 5 erros por hora.
+create or replace function public.use_recovery_code(code text) returns boolean
+language plpgsql security definer set search_path = public, private, auth as $$
+declare uid uuid := auth.uid(); matched int;
+begin
+  if uid is null or not exists (select 1 from public.profiles where id = uid and active) then
+    raise exception 'Não autorizado.' using errcode = '42501';
+  end if;
+  if (select count(*) from private.recovery_failures where user_id = uid and at > now() - interval '1 hour') >= 5 then
+    raise exception 'Muitas tentativas. Aguarde 1 hora.' using errcode = 'P0001';
+  end if;
+  update private.recovery_codes set used_at = now()
+   where user_id = uid and used_at is null and code_hash = private.recovery_hash(code);
+  get diagnostics matched = row_count;
+  if matched = 0 then
+    insert into private.recovery_failures (user_id) values (uid);
+    return false;
+  end if;
+  delete from auth.mfa_factors where user_id = uid;
+  return true;
+end $$;
+
+revoke all on function public.generate_recovery_codes(), public.recovery_codes_remaining(), public.use_recovery_code(text) from public, anon;
+grant execute on function public.generate_recovery_codes(), public.recovery_codes_remaining(), public.use_recovery_code(text) to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- ETAPA FINAL do "não sou robô" (rode só depois que o formulário estiver
+-- enviando pelo Worker — ver README): fecha o envio direto de leads pela API.
+--
+--   revoke insert on public.leads from anon;
+--   drop policy if exists "site envia leads" on public.leads;
+--   create policy "equipe cria leads" on public.leads for insert to authenticated with check (public.is_staff());
+-- -----------------------------------------------------------------------------
+
+-- -----------------------------------------------------------------------------
 -- Tornar um usuário ADMINISTRADOR (rode depois de criar o login no painel do
 -- Supabase: Authentication → Users → Add user). Troque o e-mail abaixo:
 --
