@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { CircleCheck, CircleDashed } from "lucide-react";
 import { useSiteSettings } from "@/hooks/use-site-content";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
@@ -8,6 +9,7 @@ import { Panel } from "./ui";
 /** Status das integrações. Nunca mostra valores secretos. */
 export function IntegrationsPanel({ ai, googleReviews }: { ai: { active: boolean; detail: string }; googleReviews: boolean }) {
   const { settings } = useSiteSettings();
+  const aiStatus = useAiStatus(ai);
   const whatsapp = settings.contact.whatsappDisplay;
   const whatsappSet = /\d/.test(whatsapp) && !/^[\s()0-]+$/.test(whatsapp);
 
@@ -31,7 +33,7 @@ export function IntegrationsPanel({ ai, googleReviews }: { ai: { active: boolean
       active: whatsappSet,
       detail: whatsappSet ? `Número: ${whatsapp} (editável em Conteúdo do Site).` : "Número de exemplo. Altere em Conteúdo do Site.",
     },
-    { name: "Inteligência Artificial (chat)", active: ai.active, detail: ai.detail },
+    { name: "Inteligência Artificial (chat)", active: aiStatus.active, detail: aiStatus.detail },
     {
       name: "Avaliações do Google",
       active: googleReviews,
@@ -60,4 +62,45 @@ export function IntegrationsPanel({ ai, googleReviews }: { ai: { active: boolean
       </ul>
     </Panel>
   );
+}
+
+interface ChatStatus {
+  configured: boolean;
+  valid: boolean;
+  problem?: "model" | "quota" | "key" | "network" | null;
+  model: string;
+}
+
+const PROBLEMS: Record<string, string> = {
+  key: "a chave foi recusada pelo Google. Confira se foi copiada inteira no segredo GEMINI_API_KEY da Cloudflare.",
+  model: "o modelo configurado não existe. Confira GEMINI_MODEL na Cloudflare (ou apague para usar o padrão).",
+  quota: "a cota gratuita do Gemini está esgotada no momento; o chat usa as respostas prontas até liberar.",
+  network: "não foi possível falar com o Google agora. Tente de novo em instantes.",
+};
+
+/** No site estático, a IA roda no Worker da Cloudflare: pergunta a ele se a chave está pronta. */
+function useAiStatus(fallback: { active: boolean; detail: string }) {
+  const [status, setStatus] = useState<{ active: boolean; detail: string }>(fallback);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/chat/status", { cache: "no-store" })
+      .then((response) => (response.ok ? (response.json() as Promise<ChatStatus>) : null))
+      .then((data) => {
+        if (cancelled || !data || typeof data.configured !== "boolean") return;
+        if (!data.configured) {
+          setStatus({ active: false, detail: "Chave não cadastrada: o chat usa respostas prontas. Cadastre o segredo GEMINI_API_KEY na Cloudflare." });
+        } else if (data.valid) {
+          setStatus({ active: true, detail: `Gemini ativo e chave válida • Modelo: ${data.model}` });
+        } else {
+          setStatus({ active: false, detail: `Chave cadastrada, mas ${PROBLEMS[data.problem ?? "network"] ?? PROBLEMS.network}` });
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return status;
 }

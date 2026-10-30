@@ -26,6 +26,7 @@ const json = (body: unknown, status = 200) =>
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/api/chat/status") return chatStatus(request, env);
     if (url.pathname === "/api/chat") {
       if (request.method !== "POST") return json({ error: "Método não permitido." }, 405);
       return handleChat(request, env);
@@ -33,6 +34,28 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
+
+/**
+ * Diz se a IA está pronta, para a tela de Configurações do painel. Confere a
+ * chave consultando o modelo no Google (não gera texto nem gasta a cota do chat).
+ */
+async function chatStatus(request: Request, env: Env) {
+  const model = env.GEMINI_MODEL || DEFAULT_MODEL;
+  if (!env.GEMINI_API_KEY) return json({ configured: false, valid: false, model });
+  const ip = request.headers.get("CF-Connecting-IP") ?? "anon";
+  if (env.CHAT_LIMITER && !(await env.CHAT_LIMITER.limit({ key: `status:${ip}` })).success) {
+    return json({ error: "Muitas consultas. Aguarde um instante." }, 429);
+  }
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}`, {
+      headers: { "x-goog-api-key": env.GEMINI_API_KEY },
+    });
+    const problem = response.ok ? null : response.status === 404 ? "model" : response.status === 429 ? "quota" : "key";
+    return json({ configured: true, valid: response.ok, problem, model });
+  } catch {
+    return json({ configured: true, valid: false, problem: "network", model });
+  }
+}
 
 async function handleChat(request: Request, env: Env) {
   // Só aceita chamadas do próprio site.

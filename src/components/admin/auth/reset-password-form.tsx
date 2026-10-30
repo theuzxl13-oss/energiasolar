@@ -7,11 +7,14 @@ import { KeyRound, LoaderCircle } from "lucide-react";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { Field, inputClass } from "../form-fields";
 import { CenteredCard } from "./admin-auth";
+import { getMfaStatus, MfaChallenge } from "./mfa";
 
 /** Página aberta pelo link do e-mail de recuperação: define a nova senha. */
 export function ResetPasswordForm() {
   const router = useRouter();
   const [ready, setReady] = useState<boolean | null>(null);
+  // Quem já ativou a verificação em duas etapas confirma o código antes de trocar a senha.
+  const [needsCode, setNeedsCode] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -22,9 +25,18 @@ export function ResetPasswordForm() {
     const supabase = getSupabase();
     // O link do e-mail cria uma sessão temporária de recuperação.
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" || session) setReady(true);
+      if (event !== "PASSWORD_RECOVERY" && !session) return;
+      // Fora do callback (recomendação do Supabase): confere se precisa do código antes.
+      window.setTimeout(async () => {
+        setNeedsCode((await getMfaStatus()) === "challenge");
+        setReady(true);
+      }, 0);
     });
-    const timer = window.setTimeout(() => supabase.auth.getSession().then(({ data: current }) => setReady(Boolean(current.session))), 1500);
+    const timer = window.setTimeout(async () => {
+      const { data: current } = await supabase.auth.getSession();
+      if (current.session) setNeedsCode((await getMfaStatus()) === "challenge");
+      setReady(Boolean(current.session));
+    }, 1500);
     return () => {
       data.subscription.unsubscribe();
       window.clearTimeout(timer);
@@ -41,6 +53,18 @@ export function ResetPasswordForm() {
     setBusy(false);
     if (updateError) return setError("Não foi possível salvar a nova senha. Peça um novo link de recuperação.");
     router.replace("/admin");
+  }
+
+  if (ready && needsCode) {
+    return (
+      <MfaChallenge
+        onDone={() => setNeedsCode(false)}
+        onSignOut={() => {
+          void getSupabase().auth.signOut();
+          router.replace("/admin/login");
+        }}
+      />
+    );
   }
 
   return (
