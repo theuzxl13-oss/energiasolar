@@ -20,7 +20,7 @@ create table if not exists public.profiles (
   full_name   text not null default '',
   email       text not null default '',
   role        text not null default 'usuario',   -- 'admin' | 'usuario' | futuros cargos
-  active      boolean not null default true,
+  active      boolean not null default false,  -- novos logins só acessam depois que um admin ativar
   created_at  timestamptz not null default now()
 );
 
@@ -33,6 +33,9 @@ begin
   on conflict (id) do nothing;
   return new;
 end $$;
+
+-- Bancos criados antes: novos logins passam a nascer inativos.
+alter table public.profiles alter column active set default false;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
@@ -265,5 +268,5 @@ create policy "admin remove fotos de projetos" on storage.objects for delete to 
 -- Tornar um usuário ADMINISTRADOR (rode depois de criar o login no painel do
 -- Supabase: Authentication → Users → Add user). Troque o e-mail abaixo:
 --
---   update public.profiles set role = 'admin' where email = 'seu-email@exemplo.com';
+--   update public.profiles set role = 'admin', active = true where email = 'seu-email@exemplo.com';
 -- -----------------------------------------------------------------------------
