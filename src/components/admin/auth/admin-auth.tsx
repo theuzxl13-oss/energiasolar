@@ -5,11 +5,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { LoaderCircle, LogOut, ShieldAlert } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import { getMfaStatus, MfaChallenge, MfaEnroll } from "./mfa";
 
 /**
  * Login do painel com Supabase Auth.
  * - Páginas públicas do painel: /admin/login e /admin/redefinir-senha.
- * - Demais páginas: exigem sessão e perfil ativo em `public.profiles`.
+ * - Demais páginas: exigem sessão, perfil ativo em `public.profiles` e a
+ *   verificação em duas etapas (código do app Senhas/autenticador).
  * A tela fica vazia para quem não está logado, e os dados em si são
  * protegidos pelo banco (Row Level Security), não por esta tela.
  */
@@ -43,11 +45,14 @@ type State =
   | { status: "loading" }
   | { status: "signed-out" }
   | { status: "no-access"; email: string }
+  | { status: "mfa"; step: "challenge" | "enroll" }
   | { status: "signed-in"; profile: AdminProfile };
 
 async function loadProfile(session: Session): Promise<State> {
   const { data, error } = await getSupabase().from("profiles").select("id, email, full_name, role, active").eq("id", session.user.id).maybeSingle();
   if (error || !data || !data.active) return { status: "no-access", email: session.user.email ?? "" };
+  const mfa = await getMfaStatus();
+  if (mfa !== "ok") return { status: "mfa", step: mfa };
   return { status: "signed-in", profile: { id: data.id, email: data.email, fullName: data.full_name, role: data.role, active: data.active } };
 }
 
@@ -74,7 +79,9 @@ function SupabaseAuthGate({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data }) => apply(data.session));
     const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
       // Evita chamadas ao banco dentro do callback (recomendação do Supabase).
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") window.setTimeout(() => apply(session), 0);
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED" || event === "MFA_CHALLENGE_VERIFIED") {
+        window.setTimeout(() => apply(session), 0);
+      }
     });
     return () => {
       cancelled = true;
@@ -115,6 +122,16 @@ function SupabaseAuthGate({ children }: { children: React.ReactNode }) {
         </button>
       </CenteredCard>
     );
+  }
+
+  if (state.status === "mfa") {
+    // Código confirmado: a sessão agora tem a segunda etapa; confere o acesso de novo.
+    const recheck = async () => {
+      setState({ status: "loading" });
+      const { data } = await getSupabase().auth.getSession();
+      setState(data.session ? await loadProfile(data.session) : { status: "signed-out" });
+    };
+    return state.step === "enroll" ? <MfaEnroll onDone={() => void recheck()} onSignOut={signOut} /> : <MfaChallenge onDone={() => void recheck()} onSignOut={signOut} />;
   }
 
   if (state.status !== "signed-in") {

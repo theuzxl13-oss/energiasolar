@@ -41,16 +41,23 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- Verdadeiro se o usuário logado for administrador ativo.
-create or replace function public.is_admin() returns boolean
-language sql stable security definer set search_path = public as $$
-  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin' and active);
+-- Verdadeiro se a sessão passou pela verificação em duas etapas (código do app).
+-- Sem ela, a equipe não lê nem altera dados, mesmo com a senha correta.
+create or replace function public.mfa_ok() returns boolean
+language sql stable as $$
+  select coalesce(auth.jwt() ->> 'aal', '') = 'aal2';
 $$;
 
--- Verdadeiro se o usuário logado tiver perfil ativo (qualquer cargo).
+-- Verdadeiro se o usuário logado for administrador ativo (com verificação em duas etapas).
+create or replace function public.is_admin() returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.mfa_ok() and exists (select 1 from public.profiles where id = auth.uid() and role = 'admin' and active);
+$$;
+
+-- Verdadeiro se o usuário logado tiver perfil ativo, qualquer cargo (com verificação em duas etapas).
 create or replace function public.is_staff() returns boolean
 language sql stable security definer set search_path = public as $$
-  select exists (select 1 from public.profiles where id = auth.uid() and active);
+  select public.mfa_ok() and exists (select 1 from public.profiles where id = auth.uid() and active);
 $$;
 
 create or replace function public.set_updated_at() returns trigger language plpgsql as $$
@@ -210,7 +217,7 @@ grant select                         on public.testimonials to anon;
 grant select, insert, update, delete on public.testimonials to authenticated;
 grant select                         on public.site_content to anon;
 grant select, insert, update, delete on public.site_content to authenticated;
-grant execute on function public.is_admin(), public.is_staff() to anon, authenticated;
+grant execute on function public.mfa_ok(), public.is_admin(), public.is_staff() to anon, authenticated;
 
 -- Recria as políticas (permite reexecutar o arquivo).
 do $$ declare r record; begin
