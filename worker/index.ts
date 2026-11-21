@@ -1,47 +1,75 @@
 /**
  * Cloudflare Worker: serve o site estático (pasta out/) e as rotas /api/*.
+ * Os dados ficam no banco D1 (binding DB, tabelas criadas em worker/db.ts).
+ * - /api/auth/*: login do painel com verificação em duas etapas (worker/auth.ts).
+ * - /api/admin/*: dados do painel, só com login completo (worker/admin.ts).
+ * - /api/content e /api/images/*: conteúdo e fotos públicos do site.
+ * - /api/leads: formulários com "não sou robô" (worker/leads.ts).
  * - /api/chat: chat com o Gemini (segredo GEMINI_API_KEY). Sem chave, com erro
  *   ou com a cota gratuita esgotada, responde 503 e o site usa as respostas prontas.
- * - /api/leads: formulários com "não sou robô" (worker/leads.ts).
  * - /api/backup/run e cron mensal: backup por e-mail (worker/backup.ts).
  * - /api/status: o que está configurado (tela de Configurações do painel).
  */
 import { chatRequestSchema } from "../src/lib/validations/chat";
 import { buildSystemPrompt } from "../src/services/ai/knowledge-base";
 import type { ChatMessage } from "../src/types";
+import { handleAdmin, publicContent, publicImage } from "./admin";
+import { handleAuth, handleUsers } from "./auth";
 import { backupConfigured, backupNow, runBackup } from "./backup";
-import { json, limited, readJsonPost, type Env } from "./http";
-import { leadsConfig, leadsViaServer, submitLead } from "./leads";
+import { ensureSchema } from "./db";
+import { json, limited, readJson, type Env } from "./http";
+import { leadsConfig, submitLead, turnstileEnabled } from "./leads";
 
 const DEFAULT_MODEL = "gemini-flash-latest";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const { pathname } = new URL(request.url);
-    switch (pathname) {
-      case "/api/chat/status":
-        return chatStatus(request, env);
-      case "/api/chat":
-        return handleChat(request, env);
-      case "/api/leads/config":
-        return leadsConfig(env);
-      case "/api/leads":
-        return submitLead(request, env);
-      case "/api/backup/run":
-        return backupNow(request, env);
-      case "/api/status":
-        return json({ leadsViaServer: leadsViaServer(env), backup: backupConfigured(env) });
+    if (!pathname.startsWith("/api/")) return env.ASSETS.fetch(request);
+    try {
+      return await route(request, env, pathname);
+    } catch (error) {
+      console.error("[api] Erro inesperado:", error instanceof Error ? error.message : error);
+      return json({ error: "Erro inesperado. Tente novamente." }, 500);
     }
-    if (pathname.startsWith("/api/")) return json({ error: "Não encontrado." }, 404);
-    return env.ASSETS.fetch(request);
   },
 
   /** Cron mensal (wrangler.jsonc → triggers.crons): backup por e-mail. */
   async scheduled(_controller: unknown, env: Env, ctx: { waitUntil(promise: Promise<unknown>): void }) {
     if (!backupConfigured(env)) return;
-    ctx.waitUntil(runBackup(env).catch((error) => console.error("[backup] Falha no envio mensal:", error instanceof Error ? error.message : error)));
+    ctx.waitUntil(
+      ensureSchema(env.DB)
+        .then(() => runBackup(env))
+        .catch((error) => console.error("[backup] Falha no envio mensal:", error instanceof Error ? error.message : error)),
+    );
   },
 };
+
+async function route(request: Request, env: Env, pathname: string): Promise<Response> {
+  // Rotas que não usam o banco
+  if (pathname === "/api/chat/status") return chatStatus(request, env);
+  if (pathname === "/api/leads/config") return leadsConfig(env);
+
+  await ensureSchema(env.DB);
+  if (pathname.startsWith("/api/auth/")) return handleAuth(request, env, pathname);
+  if (pathname.startsWith("/api/admin/users")) return handleUsers(request, env, pathname);
+  if (pathname.startsWith("/api/admin/")) return handleAdmin(request, env, pathname);
+  if (pathname === "/api/content" && request.method === "GET") return publicContent(env);
+  const image = pathname.match(/^\/api\/images\/([0-9a-f-]{36})$/);
+  if (image && request.method === "GET") return publicImage(env, image[1]!);
+
+  switch (pathname) {
+    case "/api/chat":
+      return handleChat(request, env);
+    case "/api/leads":
+      return submitLead(request, env);
+    case "/api/backup/run":
+      return backupNow(request, env);
+    case "/api/status":
+      return json({ database: true, turnstile: turnstileEnabled(env), backup: backupConfigured(env), email: Boolean(env.RESEND_API_KEY) });
+  }
+  return json({ error: "Não encontrado." }, 404);
+}
 
 /**
  * Diz se a IA está pronta, para a tela de Configurações do painel. Confere a
@@ -63,7 +91,7 @@ async function chatStatus(request: Request, env: Env) {
 }
 
 async function handleChat(request: Request, env: Env) {
-  const read = await readJsonPost(request);
+  const read = await readJson(request);
   if ("error" in read) return read.error;
   if (!env.GEMINI_API_KEY) return json({ error: "IA não configurada." }, 503);
   if (await limited(env, request, "chat")) return json({ error: "Muitas mensagens em pouco tempo. Aguarde um instante." }, 429);
@@ -134,13 +162,12 @@ interface Settings {
 }
 
 async function panelContent(env: Env) {
-  if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return [];
-  const response = await fetch(`${env.SUPABASE_URL.replace(/\/$/, "")}/rest/v1/site_content?select=key,value`, {
-    headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${env.SUPABASE_ANON_KEY}` },
-  });
-  if (!response.ok) throw new Error(`Supabase respondeu ${response.status}`);
-  const rows = (await response.json()) as { key: string; value: unknown }[];
-  const get = <T>(key: string) => rows.find((row) => row.key === key)?.value as T | undefined;
+  await ensureSchema(env.DB);
+  const { results } = await env.DB.prepare("select key, value from site_content").all<{ key: string; value: string }>();
+  const get = <T>(key: string) => {
+    const row = results.find((item) => item.key === key);
+    return row ? (JSON.parse(row.value) as T) : undefined;
+  };
 
   const lines: string[] = [];
   const settings = get<Settings>("content:site-settings");

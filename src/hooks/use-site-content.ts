@@ -15,11 +15,11 @@ import {
   whatsappUrl,
   type SiteSettings,
 } from "@/lib/site-content";
-import { fetchSiteContent, hasSession, saveSiteContent, uploadProjectImages } from "@/lib/supabase/site-content";
+import { fetchSiteContent, hasSession, saveSiteContent, uploadProjectImages } from "@/lib/backend/site-content";
 
 /**
  * Conteúdo editável do site.
- * - Com o Supabase configurado: lido do banco (vale para todos os visitantes).
+ * - Com o servidor da Cloudflare: lido do banco (vale para todos os visitantes).
  * - Sem ele (modo demonstração): salvo no navegador de quem editou.
  * No servidor e no primeiro render vale o padrão; logo depois as edições aparecem.
  */

@@ -6,20 +6,14 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, LoaderCircle, LogIn, MailCheck } from "lucide-react";
 import { brandMonogram } from "@/components/layout/logo";
-import { absoluteUrl, getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import { login, requestPasswordReset } from "@/lib/backend/auth";
+import { isBackendEnabled } from "@/lib/backend/client";
 import { Field, inputClass } from "../form-fields";
 import { CenteredCard, useAdminAuth } from "./admin-auth";
 
 /** Só aceita voltar para páginas do próprio painel (evita redirecionamento para outros sites). */
 function safeReturn(path: string | null) {
   return path && path.startsWith("/admin") && !path.startsWith("/admin/login") ? path : "/admin";
-}
-
-function translateError(message: string) {
-  if (/invalid login credentials/i.test(message)) return "E-mail ou senha incorretos.";
-  if (/email not confirmed/i.test(message)) return "Este e-mail ainda não foi confirmado.";
-  if (/rate limit|too many/i.test(message)) return "Muitas tentativas. Aguarde alguns minutos e tente novamente.";
-  return "Não foi possível entrar agora. Verifique sua conexão e tente novamente.";
 }
 
 export function LoginForm() {
@@ -38,10 +32,10 @@ export function LoginForm() {
     if (profile) router.replace(target);
   }, [profile, router, target]);
 
-  if (!isSupabaseConfigured) {
+  if (!isBackendEnabled) {
     return (
       <CenteredCard>
-        <p className="text-sm text-slate-600">Login desativado: o Supabase não está configurado neste ambiente.</p>
+        <p className="text-sm text-slate-600">Login desativado: o servidor do site não está ligado neste ambiente.</p>
         <Link href="/admin" className="mt-4 inline-block text-sm font-semibold text-brand-700">
           Abrir painel de demonstração
         </Link>
@@ -53,22 +47,20 @@ export function LoginForm() {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const supabase = getSupabase();
-    if (mode === "forgot") {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: absoluteUrl("/admin/redefinir-senha/") });
-      setBusy(false);
-      // Mesmo resultado para e-mails cadastrados ou não (não revela quem tem acesso).
-      if (resetError && /rate limit|too many/i.test(resetError.message)) setError(translateError(resetError.message));
-      else setMode("sent");
-      return;
+    try {
+      if (mode === "forgot") {
+        // Mesmo resultado para e-mails cadastrados ou não (não revela quem tem acesso).
+        await requestPasswordReset(email.trim());
+        setMode("sent");
+      } else {
+        await login(email.trim(), password);
+        // O painel pede o código do app em seguida.
+        router.replace(target);
+      }
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : "Não foi possível entrar agora. Verifique sua conexão e tente novamente.");
     }
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setBusy(false);
-    if (signInError) {
-      setError(translateError(signInError.message));
-      return;
-    }
-    router.replace(target);
   }
 
   return (

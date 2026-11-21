@@ -1,65 +1,46 @@
 /**
  * Backup por e-mail: exporta leads, orçamentos, contratos e conteúdo do site
- * (função `export_backup` do banco, com segredo) e envia pelo Resend.
- * Roda todo dia 1º (cron em wrangler.jsonc) ou pelo botão em Configurações.
- * Fotos dos projetos ficam no Storage do Supabase e não vão no e-mail.
+ * do banco D1 e envia pelo Resend. Roda todo dia 1º (cron em wrangler.jsonc)
+ * ou pelo botão em Configurações. As fotos dos projetos não vão no e-mail.
  */
-import { json, limited, readJsonPost, supabaseRpc, type Env } from "./http";
+import { exportAll } from "./admin";
+import { requireAdmin } from "./auth";
+import { json, limited, readJson, sendEmail, type Env } from "./http";
 
-interface Backup {
-  generated_at: string;
-  leads: Record<string, unknown>[];
-  quotes: unknown[];
-  contracts: unknown[];
-  site_content: unknown[];
-  profiles: unknown[];
-}
-
-export const backupConfigured = (env: Env) => Boolean(env.BACKUP_SECRET && env.RESEND_API_KEY && env.BACKUP_EMAIL);
+export const backupConfigured = (env: Env) => Boolean(env.RESEND_API_KEY && env.BACKUP_EMAIL);
 
 export async function runBackup(env: Env) {
   if (!backupConfigured(env)) throw new Error("Backup não configurado");
-  const data = await supabaseRpc<Backup>(env, "export_backup", { secret: env.BACKUP_SECRET });
+  const data = await exportAll(env.DB);
   const month = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "America/Sao_Paulo" });
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = data.generated_at.slice(0, 10);
   const counts = { leads: data.leads.length, quotes: data.quotes.length, contracts: data.contracts.length };
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: "Backup do site <onboarding@resend.dev>",
-      to: [env.BACKUP_EMAIL],
-      subject: `Backup do site — ${month}`,
-      html: [
-        `<p>Backup automático do site gerado em ${new Date(data.generated_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}.</p>`,
-        `<ul><li>Leads: ${counts.leads}</li><li>Orçamentos: ${counts.quotes}</li><li>Contratos: ${counts.contracts}</li></ul>`,
-        "<p><strong>leads.csv</strong> abre no Excel. <strong>backup-completo.json</strong> tem tudo (leads, orçamentos, contratos e conteúdo do site) para restauração.</p>",
-        "<p>Os anexos contêm dados pessoais de clientes: guarde em local seguro (LGPD).</p>",
-      ].join(""),
-      attachments: [
-        { filename: `leads-${stamp}.csv`, content: toBase64("﻿" + leadsCsv(data.leads)) },
-        { filename: `backup-completo-${stamp}.json`, content: toBase64(JSON.stringify(data, null, 2)) },
-      ],
-    }),
+  await sendEmail(env, {
+    to: env.BACKUP_EMAIL!,
+    subject: `Backup do site — ${month}`,
+    html: [
+      `<p>Backup automático do site gerado em ${new Date(data.generated_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}.</p>`,
+      `<ul><li>Leads: ${counts.leads}</li><li>Orçamentos: ${counts.quotes}</li><li>Contratos: ${counts.contracts}</li></ul>`,
+      "<p><strong>leads.csv</strong> abre no Excel. <strong>backup-completo.json</strong> tem tudo e pode ser restaurado em Painel → Configurações → Importar dados.</p>",
+      "<p>Os anexos contêm dados pessoais de clientes: guarde em local seguro (LGPD).</p>",
+    ].join(""),
+    attachments: [
+      { filename: `leads-${stamp}.csv`, content: toBase64("﻿" + leadsCsv(data.leads)) },
+      { filename: `backup-completo-${stamp}.json`, content: toBase64(JSON.stringify(data, null, 2)) },
+    ],
   });
-  if (!response.ok) throw new Error(`Resend respondeu ${response.status}: ${(await response.text()).slice(0, 200)}`);
   return counts;
 }
 
 /** POST /api/backup/run: botão "Enviar backup agora" (só administrador com o código do app). */
 export async function backupNow(request: Request, env: Env) {
-  const read = await readJsonPost(request);
+  const read = await readJson(request);
   if ("error" in read) return read.error;
+  const session = await requireAdmin(request, env);
+  if (session instanceof Response) return session;
   if (!backupConfigured(env)) return json({ error: "Backup não configurado." }, 503);
   if (await limited(env, request, "backup")) return json({ error: "Aguarde um instante." }, 429);
-
-  const jwt = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
-  if (!jwt) return json({ error: "Faça login." }, 401);
-  // O próprio banco confere: administrador ativo e com a segunda etapa (aal2).
-  const isAdmin = await supabaseRpc<boolean>(env, "is_admin", {}, jwt).catch(() => false);
-  if (isAdmin !== true) return json({ error: "Apenas administradores podem enviar o backup." }, 403);
-
   try {
     return json({ sent: true, counts: await runBackup(env) });
   } catch (error) {
