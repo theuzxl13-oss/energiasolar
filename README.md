@@ -206,7 +206,7 @@ Outro provedor: implemente a interface `ChatProvider` em `src/services/ai/` e ad
 
 O site publicado guarda tudo no **D1**, o banco de dados da Cloudflare: leads, orçamentos, contratos, conteúdo do site, fotos dos projetos e os logins do painel.
 
-- O `wrangler deploy` cria o banco `dc-eco-energy` sozinho no primeiro deploy (binding `DB` em `wrangler.jsonc`).
+- O banco `dc-eco-energy` está ligado ao site pelo binding `DB` em `wrangler.jsonc` (com o `database_id` fixo).
 - O Worker cria as tabelas na primeira requisição (`worker/db.ts`).
 - O login do painel fica em `worker/auth.ts`:
   - senha com hash PBKDF2;
