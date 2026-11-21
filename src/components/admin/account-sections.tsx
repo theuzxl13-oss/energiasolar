@@ -65,7 +65,7 @@ function TeamSection({ selfId }: { selfId: string }) {
     await run(async () => {
       await createUser({ ...form, email: form.email.trim(), name: form.name.trim() });
       setForm({ name: "", email: "", password: "", role: "usuario" });
-    }, "Login criado. Passe a senha à pessoa por um canal seguro; no primeiro acesso ela cadastra o app de códigos.");
+    }, "Login criado. Passe a senha à pessoa por um canal seguro.");
   }
 
   return (

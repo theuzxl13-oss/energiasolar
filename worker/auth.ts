@@ -42,6 +42,9 @@ export interface Session {
   tokenHash: string;
 }
 
+/** Verificação em duas etapas ligada? (REQUIRE_MFA = "true" em wrangler.jsonc). Desligada, a senha basta. */
+export const mfaRequired = (env: Env) => env.REQUIRE_MFA === "true";
+
 const publicUser = (user: User) => ({ id: user.id, email: user.email, name: user.name, role: user.role, active: Boolean(user.active) });
 const normalizeEmail = (value: unknown) => str(value, 160).toLowerCase();
 const validEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -147,8 +150,9 @@ async function me(request: Request, env: Env) {
   if (!session) return json({ error: "Faça login." }, 401);
   return json({
     user: publicUser(session.user),
-    mfa: mfaStep(session),
-    recoveryRemaining: session.aal === 2 ? await recoveryRemaining(env.DB, session.user.id) : null,
+    mfa: mfaRequired(env) ? mfaStep(session) : "ok",
+    mfaRequired: mfaRequired(env),
+    recoveryRemaining: mfaRequired(env) && session.aal === 2 ? await recoveryRemaining(env.DB, session.user.id) : null,
   });
 }
 
@@ -184,7 +188,7 @@ async function setup(request: Request, env: Env) {
     .bind(id, email, name, await hashPassword(password))
     .run();
   if (!result.meta.changes) return json({ error: "O painel já foi configurado." }, 409);
-  return json({ ok: true }, 200, { "Set-Cookie": await startSession(env.DB, id, 1) });
+  return json({ ok: true }, 200, { "Set-Cookie": await startSession(env.DB, id, mfaRequired(env) ? 1 : 2) });
 }
 
 // Hash de uma senha qualquer, para o login demorar o mesmo tempo com e-mail inexistente.
@@ -209,6 +213,7 @@ async function login(request: Request, env: Env) {
     return json({ error: "E-mail ou senha incorretos." }, 401);
   }
   if (!user.active) return json({ error: "Este login não tem permissão para usar o painel. Fale com o administrador." }, 403);
+  if (!mfaRequired(env)) return json({ mfa: "ok" }, 200, { "Set-Cookie": await startSession(env.DB, user.id, 2) });
   return json({ mfa: user.totp_secret ? "challenge" : "enroll" }, 200, { "Set-Cookie": await startSession(env.DB, user.id, 1) });
 }
 
@@ -337,7 +342,7 @@ async function resetCheck(request: Request, env: Env) {
   const read = await readJson(request);
   if ("error" in read) return read.error;
   const user = await findReset(env.DB, str(isObject(read.body) ? read.body.token : "", 80));
-  return json({ valid: Boolean(user), needsCode: Boolean(user?.totp_secret) });
+  return json({ valid: Boolean(user), needsCode: mfaRequired(env) && Boolean(user?.totp_secret) });
 }
 
 /** Nova senha pelo link do e-mail. Quem tem o app cadastrado confirma o código também. */
@@ -350,7 +355,7 @@ async function reset(request: Request, env: Env) {
   const key = `totp:${user.id}`;
   if (await tooManyFailures(env.DB, key, 5, FAIL_WINDOW)) return json({ error: "Muitas tentativas. Aguarde 15 minutos." }, 429);
   let step = user.totp_last_step;
-  if (user.totp_secret) {
+  if (mfaRequired(env) && user.totp_secret) {
     const verified = await verifyTotp(user.totp_secret, str(body.code, 10), user.totp_last_step);
     if (verified === null) {
       await recordFailure(env.DB, key);

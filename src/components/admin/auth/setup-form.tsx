@@ -34,7 +34,7 @@ export function SetupForm() {
     setError(null);
     try {
       await setupAdmin({ secret: form.secret.trim(), name: form.name.trim(), email: form.email.trim(), password: form.password });
-      // Já entra logado: o painel pede para cadastrar o app de códigos em seguida.
+      // Já entra logado (com a verificação em duas etapas ligada, o painel pede o app em seguida).
       router.replace("/admin");
     } catch (problem) {
       setError(problem instanceof Error ? problem.message : "Não foi possível configurar.");
@@ -63,7 +63,7 @@ export function SetupForm() {
       )}
       {status?.needed && status.configured && (
         <form onSubmit={submit} className="mt-6 grid gap-4 text-left">
-          <p className="text-sm text-slate-600">Crie o login do administrador. Em seguida você vai cadastrar o app de códigos do celular.</p>
+          <p className="text-sm text-slate-600">Crie o login do administrador.</p>
           <Field label="Código de configuração" hint="O valor do segredo ADMIN_SETUP_SECRET cadastrado na Cloudflare.">
             <input type="password" required autoComplete="off" className={inputClass} value={form.secret} onChange={update("secret")} />
           </Field>
