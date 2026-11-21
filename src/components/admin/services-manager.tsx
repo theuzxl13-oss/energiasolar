@@ -11,7 +11,7 @@ import { Icon } from "@/components/ui/icon";
 import { AdminPageHeader, DemoNote, Panel } from "./ui";
 import { Field, inputClass } from "./form-fields";
 import { cn, moveItem } from "@/lib/utils";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { isBackendEnabled } from "@/lib/backend/client";
 
 /** Links sugeridos para "Saiba mais" e para o botão de ação. */
 const LINK_SUGGESTIONS = [
@@ -100,7 +100,7 @@ export function ServicesManager() {
         }
       />
       <DemoNote>
-        {isSupabaseConfigured ? (
+        {isBackendEnabled ? (
           <>As alterações ficam salvas no banco de dados e aparecem para todos na seção “Nossas soluções” do site.</>
         ) : (
           <>

@@ -2,18 +2,17 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { LoaderCircle, LogOut, ShieldAlert } from "lucide-react";
-import type { Session } from "@supabase/supabase-js";
-import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
-import { getMfaStatus, MfaChallenge, MfaEnroll, recoveryCodesRemaining, RecoveryCodesSetup } from "./mfa";
+import { LoaderCircle } from "lucide-react";
+import { getMe, logout } from "@/lib/backend/auth";
+import { isBackendEnabled } from "@/lib/backend/client";
+import { MfaChallenge, MfaEnroll, RecoveryCodesSetup } from "./mfa";
 
 /**
- * Login do painel com Supabase Auth.
- * - Páginas públicas do painel: /admin/login e /admin/redefinir-senha.
- * - Demais páginas: exigem sessão, perfil ativo em `public.profiles` e a
- *   verificação em duas etapas (código do app Senhas/autenticador).
- * A tela fica vazia para quem não está logado, e os dados em si são
- * protegidos pelo banco (Row Level Security), não por esta tela.
+ * Login do painel (servidor da Cloudflare, rotas /api/auth/*).
+ * - Páginas públicas do painel: login, redefinir senha e configuração inicial.
+ * - Demais páginas: exigem senha + código do app (verificação em duas etapas).
+ * Esta tela só organiza o fluxo: quem protege os dados é o servidor, que
+ * recusa qualquer pedido sem o login completo.
  */
 
 export interface AdminProfile {
@@ -25,17 +24,19 @@ export interface AdminProfile {
 }
 
 interface AdminAuthValue {
-  /** `false` quando o Supabase não está configurado (demonstração local, sem login). */
+  /** `false` sem servidor (demonstração local, sem login). */
   enabled: boolean;
   profile: AdminProfile | null;
   signOut: () => Promise<void>;
+  /** Confere o login de novo (depois de entrar com a senha, por exemplo). */
+  refresh: () => Promise<void>;
 }
 
-const AdminAuthContext = createContext<AdminAuthValue>({ enabled: false, profile: null, signOut: async () => {} });
+const AdminAuthContext = createContext<AdminAuthValue>({ enabled: false, profile: null, signOut: async () => {}, refresh: async () => {} });
 
 export const useAdminAuth = () => useContext(AdminAuthContext);
 
-const PUBLIC_PATHS = ["/admin/login", "/admin/redefinir-senha"];
+const PUBLIC_PATHS = ["/admin/login", "/admin/redefinir-senha", "/admin/configurar"];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
@@ -44,106 +45,86 @@ function isPublicPath(pathname: string) {
 type State =
   | { status: "loading" }
   | { status: "signed-out" }
-  | { status: "no-access"; email: string }
   | { status: "mfa"; step: "challenge" | "enroll" }
   | { status: "recovery-codes"; profile: AdminProfile }
   | { status: "signed-in"; profile: AdminProfile };
 
-async function loadProfile(session: Session): Promise<State> {
-  const { data, error } = await getSupabase().from("profiles").select("id, email, full_name, role, active").eq("id", session.user.id).maybeSingle();
-  if (error || !data || !data.active) return { status: "no-access", email: session.user.email ?? "" };
-  const mfa = await getMfaStatus();
-  if (mfa !== "ok") return { status: "mfa", step: mfa };
-  const profile = { id: data.id, email: data.email, fullName: data.full_name, role: data.role, active: data.active };
-  // Sem códigos reserva ainda: pede para gerar (0). `null` = banco sem o recurso, segue.
-  if ((await recoveryCodesRemaining()) === 0) return { status: "recovery-codes", profile };
+async function loadState(): Promise<State> {
+  const me = await getMe();
+  if (!me) return { status: "signed-out" };
+  if (me.mfa !== "ok") return { status: "mfa", step: me.mfa };
+  const profile = { id: me.user.id, email: me.user.email, fullName: me.user.name, role: me.user.role, active: me.user.active };
+  // Sem códigos reserva ainda: pede para gerar antes de entrar.
+  if (me.recoveryRemaining === 0) return { status: "recovery-codes", profile };
   return { status: "signed-in", profile };
 }
 
 export function AdminAuthGate({ children }: { children: React.ReactNode }) {
-  if (!isSupabaseConfigured) {
-    return <AdminAuthContext.Provider value={{ enabled: false, profile: null, signOut: async () => {} }}>{children}</AdminAuthContext.Provider>;
+  if (!isBackendEnabled) {
+    return (
+      <AdminAuthContext.Provider value={{ enabled: false, profile: null, signOut: async () => {}, refresh: async () => {} }}>{children}</AdminAuthContext.Provider>
+    );
   }
-  return <SupabaseAuthGate>{children}</SupabaseAuthGate>;
+  return <ServerAuthGate>{children}</ServerAuthGate>;
 }
 
-function SupabaseAuthGate({ children }: { children: React.ReactNode }) {
+function ServerAuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [state, setState] = useState<State>({ status: "loading" });
   const publicPage = isPublicPath(pathname);
+  // Em qual tipo de página o login foi conferido por último. Ao sair do login para o
+  // painel, a resposta antiga ("ninguém logado") não pode decidir nada.
+  const [checkedOnPublic, setCheckedOnPublic] = useState<boolean | null>(null);
+  const current = checkedOnPublic === publicPage;
 
+  const refresh = useCallback(async () => {
+    setState(await loadState());
+  }, []);
+
+  // Confere o login ao abrir o painel e ao sair de uma página pública (ex.: depois do login).
   useEffect(() => {
-    const supabase = getSupabase();
     let cancelled = false;
-    const apply = async (session: Session | null) => {
-      const next = session ? await loadProfile(session) : ({ status: "signed-out" } as const);
-      if (!cancelled) setState(next);
-    };
-    supabase.auth.getSession().then(({ data }) => apply(data.session));
-    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
-      // Evita chamadas ao banco dentro do callback (recomendação do Supabase).
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED" || event === "MFA_CHALLENGE_VERIFIED") {
-        window.setTimeout(() => apply(session), 0);
-      }
+    loadState().then((next) => {
+      if (cancelled) return;
+      setState(next);
+      setCheckedOnPublic(publicPage);
     });
     return () => {
       cancelled = true;
-      subscription.subscription.unsubscribe();
     };
-  }, []);
+  }, [publicPage]);
 
   useEffect(() => {
-    if (state.status === "signed-out" && !publicPage) {
+    if (current && state.status === "signed-out" && !publicPage) {
       router.replace(`/admin/login?voltar=${encodeURIComponent(pathname)}`);
     }
-  }, [state.status, publicPage, pathname, router]);
+  }, [current, state.status, publicPage, pathname, router]);
 
   const signOut = useCallback(async () => {
-    await getSupabase().auth.signOut();
+    await logout();
     setState({ status: "signed-out" });
     router.replace("/admin/login");
   }, [router]);
 
-  const value: AdminAuthValue = { enabled: true, profile: state.status === "signed-in" ? state.profile : null, signOut };
+  const value: AdminAuthValue = { enabled: true, profile: state.status === "signed-in" ? state.profile : null, signOut, refresh };
 
   if (publicPage) return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>;
 
-  if (state.status === "no-access") {
-    return (
-      <CenteredCard>
-        <ShieldAlert className="mx-auto size-10 text-amber-500" aria-hidden="true" />
-        <h1 className="mt-4 font-display text-xl font-bold text-night-900">Acesso não autorizado</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          O login <strong>{state.email}</strong> não tem permissão para usar o painel. Fale com o administrador.
-        </p>
-        <button
-          type="button"
-          onClick={signOut}
-          className="mt-6 inline-flex items-center gap-2 rounded-full bg-night-950 px-5 py-2.5 text-sm font-semibold text-white hover:bg-night-800"
-        >
-          <LogOut className="size-4" aria-hidden="true" /> Sair
-        </button>
-      </CenteredCard>
-    );
-  }
-
-  if (state.status === "mfa") {
-    // Código confirmado: a sessão agora tem a segunda etapa; confere o acesso de novo.
-    const recheck = async () => {
+  if (current && state.status === "mfa") {
+    const recheck = () => {
       setState({ status: "loading" });
-      const { data } = await getSupabase().auth.getSession();
-      setState(data.session ? await loadProfile(data.session) : { status: "signed-out" });
+      void refresh();
     };
-    return state.step === "enroll" ? <MfaEnroll onDone={() => void recheck()} onSignOut={signOut} /> : <MfaChallenge onDone={() => void recheck()} onSignOut={signOut} />;
+    return state.step === "enroll" ? <MfaEnroll onDone={recheck} onSignOut={signOut} /> : <MfaChallenge onDone={recheck} onSignOut={signOut} />;
   }
 
-  if (state.status === "recovery-codes") {
+  if (current && state.status === "recovery-codes") {
     const { profile } = state;
     return <RecoveryCodesSetup onDone={() => setState({ status: "signed-in", profile })} onSignOut={signOut} />;
   }
 
-  if (state.status !== "signed-in") {
+  if (!current || state.status !== "signed-in") {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-slate-100" role="status">
         <LoaderCircle className="size-6 animate-spin text-slate-400" aria-label="Verificando acesso…" />

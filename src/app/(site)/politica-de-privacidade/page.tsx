@@ -64,10 +64,8 @@ export default function PrivacidadePage() {
               </p>
               <ul className="mt-2 list-disc space-y-2 pl-6">
                 <li>
-                  <strong>Cloudflare</strong>: hospedagem do site e verificação “não sou robô” (Turnstile).
-                </li>
-                <li>
-                  <strong>Supabase</strong>: banco de dados onde ficam os pedidos de orçamento e contato.
+                  <strong>Cloudflare</strong>: hospedagem do site, banco de dados onde ficam os pedidos de orçamento e contato e verificação
+                  “não sou robô” (Turnstile).
                 </li>
                 <li>
                   <strong>Google (Gemini)</strong>: inteligência artificial que gera as respostas do chat. As mensagens digitadas no chat são

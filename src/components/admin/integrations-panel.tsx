@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CircleCheck, CircleDashed, LoaderCircle, Mail } from "lucide-react";
+import { CircleCheck, CircleDashed, Download, LoaderCircle, Mail } from "lucide-react";
 import { useSiteSettings } from "@/hooks/use-site-content";
-import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import { api, isBackendEnabled } from "@/lib/backend/client";
+import { AccountSections } from "./account-sections";
 import { recoveryCodesRemaining, RecoveryCodesPanel } from "./auth/mfa";
 import { Panel } from "./ui";
 
@@ -17,18 +18,19 @@ export function IntegrationsPanel({ ai, googleReviews }: { ai: { active: boolean
 
   const integrations = [
     {
-      name: "Banco de dados (Supabase)",
-      active: isSupabaseConfigured,
-      detail: isSupabaseConfigured
-        ? "Leads, orçamentos, contratos e conteúdo do site salvos no Supabase."
+      name: "Banco de dados (Cloudflare D1)",
+      active: isBackendEnabled,
+      detail: isBackendEnabled
+        ? "Leads, orçamentos, contratos, conteúdo do site e fotos salvos no banco D1 da Cloudflare."
         : "Não configurado: os dados ficam só neste navegador (demonstração).",
+      action: isBackendEnabled ? <DownloadBackupLink /> : null,
     },
     {
       name: "Proteção do painel",
-      active: isSupabaseConfigured,
-      detail: isSupabaseConfigured
-        ? "Login com e-mail e senha (Supabase Auth). Os dados também são protegidos por regras de acesso no banco (RLS)."
-        : "Sem login: configure o Supabase para proteger o painel.",
+      active: isBackendEnabled,
+      detail: isBackendEnabled
+        ? "Login com senha + código do app (verificação em duas etapas), sessão de 12 horas em cookie protegido e freio contra tentativas repetidas."
+        : "Sem login: o painel só funciona no modo demonstração.",
     },
     {
       name: "WhatsApp",
@@ -38,17 +40,17 @@ export function IntegrationsPanel({ ai, googleReviews }: { ai: { active: boolean
     { name: "Inteligência Artificial (chat)", active: aiStatus.active, detail: aiStatus.detail },
     {
       name: "“Não sou robô” nos formulários",
-      active: server?.leadsViaServer === true,
-      detail: server?.leadsViaServer
+      active: server?.turnstile === true,
+      detail: server?.turnstile
         ? "Formulários conferidos pelo Cloudflare Turnstile antes de gravar o lead."
-        : "Não configurado. Cadastre TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY e LEAD_SUBMIT_SECRET na Cloudflare.",
+        : "Não configurado. Cadastre TURNSTILE_SITE_KEY e TURNSTILE_SECRET_KEY na Cloudflare (o site já tem travas anti-spam no servidor).",
     },
     {
       name: "Backup mensal por e-mail",
       active: server?.backup === true,
       detail: server?.backup
         ? "Todo dia 1º, leads, orçamentos, contratos e conteúdo do site são enviados por e-mail."
-        : "Não configurado. Cadastre BACKUP_SECRET, RESEND_API_KEY e BACKUP_EMAIL na Cloudflare.",
+        : "Não configurado. Cadastre RESEND_API_KEY e BACKUP_EMAIL na Cloudflare.",
       action: server?.backup ? <BackupNowButton /> : null,
     },
     {
@@ -63,7 +65,7 @@ export function IntegrationsPanel({ ai, googleReviews }: { ai: { active: boolean
   return (
     <>
       <Panel title="Integrações">
-      <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-slate-100">
         {integrations.map((integration) => (
           <li key={integration.name} className="flex items-start gap-3 py-4">
             {integration.active ? (
@@ -80,7 +82,8 @@ export function IntegrationsPanel({ ai, googleReviews }: { ai: { active: boolean
         ))}
       </ul>
       </Panel>
-      {isSupabaseConfigured && <RecoveryCodesSection />}
+      {isBackendEnabled && <RecoveryCodesSection />}
+      {isBackendEnabled && <AccountSections />}
     </>
   );
 }
@@ -128,7 +131,7 @@ function useAiStatus(fallback: { active: boolean; detail: string }) {
 
 /** O que está configurado no servidor (Cloudflare Worker). `null` enquanto carrega ou sem servidor. */
 function useServerStatus() {
-  const [status, setStatus] = useState<{ leadsViaServer: boolean; backup: boolean } | null>(null);
+  const [status, setStatus] = useState<{ turnstile: boolean; backup: boolean } | null>(null);
   useEffect(() => {
     let cancelled = false;
     fetch("/api/status", { cache: "no-store" })
@@ -147,18 +150,12 @@ function BackupNowButton() {
 
   async function send() {
     setState({ busy: true });
-    const { data } = await getSupabase().auth.getSession();
-    const response = await fetch("/api/backup/run", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session?.access_token ?? ""}` },
-      body: "{}",
-    }).catch(() => null);
-    const body = (await response?.json().catch(() => null)) as { error?: string; counts?: { leads: number } } | null;
-    setState(
-      response?.ok
-        ? { busy: false, ok: true, message: `Backup enviado (${body?.counts?.leads ?? 0} leads). Confira seu e-mail.` }
-        : { busy: false, ok: false, message: body?.error ?? "Não foi possível enviar o backup." },
-    );
+    try {
+      const { counts } = await api<{ counts: { leads: number } }>("/api/backup/run", { method: "POST", body: {} });
+      setState({ busy: false, ok: true, message: `Backup enviado (${counts.leads} leads). Confira seu e-mail.` });
+    } catch (error) {
+      setState({ busy: false, ok: false, message: error instanceof Error ? error.message : "Não foi possível enviar o backup." });
+    }
   }
 
   return (
@@ -176,6 +173,19 @@ function BackupNowButton() {
   );
 }
 
+/** Baixa agora um arquivo com todos os dados (o mesmo do backup por e-mail). */
+function DownloadBackupLink() {
+  return (
+    <a
+      href="/api/admin/backup"
+      download
+      className="mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+    >
+      <Download className="size-3.5" aria-hidden="true" /> Baixar backup agora
+    </a>
+  );
+}
+
 function RecoveryCodesSection() {
   const [remaining, setRemaining] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
@@ -188,7 +198,7 @@ function RecoveryCodesSection() {
     <Panel title="Códigos reserva (celular perdido)">
       <p className="text-sm text-slate-600">
         {remaining === null
-          ? "Recurso ainda não ativado no banco de dados."
+          ? "Carregando…"
           : `Você tem ${remaining} de 10 códigos reserva sem usar.${remaining <= 3 ? " Gere códigos novos." : ""}`}
       </p>
       {remaining !== null &&

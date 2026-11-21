@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
-import { deleteDocument, fetchDocuments, upsertDocument, type DocumentSummary, type DocumentTable } from "@/lib/supabase/documents";
+import { isBackendEnabled } from "@/lib/backend/client";
+import { deleteDocument, fetchDocuments, upsertDocument, type DocumentSummary, type DocumentTable } from "@/lib/backend/documents";
 
 /**
  * Coleção de documentos usada por orçamentos e contratos.
- * - Com o Supabase configurado: salva no banco (tabela `table`).
+ * - Com o servidor da Cloudflare: salva no banco D1 (tabela `table`).
  * - Sem ele (MODO DEMONSTRAÇÃO): salva no navegador.
  */
 
@@ -21,7 +21,7 @@ export interface CollectionOptions<T> {
   key: string;
   /** Documentos de exemplo incluídos uma única vez, no primeiro acesso (só no modo demonstração). */
   seed?: () => T[];
-  /** Tabela no Supabase e colunas de listagem. */
+  /** Tabela no banco e colunas de listagem. */
   table: DocumentTable;
   summary: (doc: T) => DocumentSummary;
 }
@@ -61,12 +61,12 @@ export function nextDocumentNumber(existing: string[], year = new Date().getFull
 }
 
 export function useStoredCollection<T extends StoredDoc>(options: CollectionOptions<T>) {
-  const remote = useSupabaseCollection(options);
+  const remote = useServerCollection(options);
   const local = useLocalCollection(options);
-  return isSupabaseConfigured ? remote : local;
+  return isBackendEnabled ? remote : local;
 }
 
-/* ------------------------------- Supabase --------------------------------- */
+/* ------------------------------- Servidor --------------------------------- */
 
 /** Cache por tabela, compartilhado entre telas: o que acabou de ser salvo já aparece na próxima página. */
 const cache = new Map<DocumentTable, { docs: StoredDoc[]; loading?: Promise<void> }>();
@@ -80,7 +80,7 @@ function failed(action: string) {
   window.alert(`Não foi possível ${action} no banco de dados. Verifique sua conexão e tente novamente.`);
 }
 
-/** Envia uma única vez os documentos criados no navegador antes da ligação com o Supabase. */
+/** Envia uma única vez os documentos criados no navegador antes da ligação com o servidor. */
 async function migrateLocal<T extends StoredDoc>({ key, table, summary }: CollectionOptions<T>, existing: StoredDoc[]) {
   const flag = `${key}-migrated`;
   try {
@@ -103,13 +103,13 @@ async function migrateLocal<T extends StoredDoc>({ key, table, summary }: Collec
   }
 }
 
-function useSupabaseCollection<T extends StoredDoc>(options: CollectionOptions<T>) {
+function useServerCollection<T extends StoredDoc>(options: CollectionOptions<T>) {
   const { table, summary } = options;
   const [docs, setDocs] = useState<T[]>(() => (cache.get(table)?.docs as T[] | undefined) ?? []);
   const [ready, setReady] = useState(() => Boolean(cache.get(table) && !cache.get(table)?.loading));
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isBackendEnabled) return;
     const sync = () => {
       const entry = cache.get(table);
       if (!entry || entry.loading) return;
@@ -179,7 +179,7 @@ function useLocalCollection<T extends StoredDoc>(options: CollectionOptions<T>) 
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (isSupabaseConfigured) return;
+    if (isBackendEnabled) return;
     const sync = () => {
       setDocs(read(options));
       setReady(true);

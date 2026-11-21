@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
-import { fetchLeads, updateLeadStatus } from "@/lib/supabase/leads";
+import { isBackendEnabled } from "@/lib/backend/client";
+import { fetchLeads, updateLeadStatus } from "@/lib/backend/leads";
 import type { Lead, LeadStatus } from "@/types";
 
 /**
  * Leads do painel /admin.
- * - Com o Supabase configurado: lidos e atualizados no banco (exige login).
+ * - Com o servidor da Cloudflare: lidos e atualizados no banco (exige login).
  * - Sem ele (MODO DEMONSTRAÇÃO): leads enviados pelos formulários ficam
  *   salvos neste navegador para aparecerem no painel.
  */
@@ -35,24 +35,24 @@ function write(key: string, value: unknown) {
 }
 
 export function saveDemoLead(lead: Lead) {
-  if (isSupabaseConfigured) return;
+  if (isBackendEnabled) return;
   const current = read<Lead[]>(LEADS_KEY, []);
   write(LEADS_KEY, [lead, ...current.filter((item) => item.id !== lead.id)].slice(0, 100));
 }
 
 export function useDemoLeads() {
-  const supabase = useSupabaseLeads();
+  const server = useServerLeads();
   const local = useLocalLeads();
-  return isSupabaseConfigured ? supabase : local;
+  return isBackendEnabled ? server : local;
 }
 
-function useSupabaseLeads() {
+function useServerLeads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isBackendEnabled) return;
     let cancelled = false;
     fetchLeads()
       .then((rows) => !cancelled && setLeads(rows))

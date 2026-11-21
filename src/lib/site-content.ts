@@ -27,7 +27,7 @@ export const CONTENT_CHANGE_EVENT = "site-content-change";
 
 /** Conteúdo vindo do banco; preenchido por `use-site-content` quando o Supabase está configurado. */
 export const remoteContent = {
-  enabled: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+  enabled: process.env.NEXT_PUBLIC_BACKEND === "cloudflare",
   loaded: false,
   values: new Map<string, unknown>(),
 };

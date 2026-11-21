@@ -1,32 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { renderSVG } from "uqr";
 import { Copy, Download, KeyRound, LifeBuoy, LoaderCircle, LogOut, Smartphone } from "lucide-react";
-import { getSupabase } from "@/lib/supabase/client";
+import { generateRecoveryCodes, getMe, redeemRecoveryCode, startEnroll, verifyCode } from "@/lib/backend/auth";
 import { inputClass } from "../form-fields";
 import { CenteredCard } from "./admin-auth";
 
 /**
  * Verificação em duas etapas (TOTP): código de 6 dígitos gerado pelo app
  * Senhas do iPhone, Google Authenticator, Microsoft Authenticator etc.
- * O banco também exige a segunda etapa (`public.is_staff()` / `is_admin()`).
+ * O servidor só libera os dados do painel depois do código (sessão nível 2).
  */
 
-export type MfaStatus = "ok" | "challenge" | "enroll";
-
-/** "enroll" = ainda não cadastrou o código; "challenge" = falta digitar o código nesta sessão. */
-export async function getMfaStatus(): Promise<MfaStatus> {
-  const { data, error } = await getSupabase().auth.mfa.getAuthenticatorAssuranceLevel();
-  if (error || !data) return "enroll";
-  if (data.currentLevel === "aal2") return "ok";
-  return data.nextLevel === "aal2" ? "challenge" : "enroll";
-}
-
-function codeError(message: string) {
-  if (/invalid|expired|code/i.test(message)) return "Código incorreto ou expirado. Confira no app e tente de novo.";
-  if (/rate|too many/i.test(message)) return "Muitas tentativas. Aguarde alguns minutos.";
-  return "Não foi possível confirmar o código. Tente novamente.";
-}
+const errorMessage = (error: unknown, fallback: string) => (error instanceof Error && error.message ? error.message : fallback);
 
 function CodeForm({ onSubmit, label }: { onSubmit: (code: string) => Promise<string | null>; label: string }) {
   const [code, setCode] = useState("");
@@ -86,28 +73,27 @@ function SignOutLink({ onSignOut }: { onSignOut: () => void }) {
   );
 }
 
+async function confirmCode(code: string, onDone: () => void) {
+  try {
+    await verifyCode(code);
+    onDone();
+    return null;
+  } catch (error) {
+    return errorMessage(error, "Não foi possível confirmar o código. Tente novamente.");
+  }
+}
+
 /** Pede o código de 6 dígitos de quem já cadastrou a verificação (ou um código reserva). */
 export function MfaChallenge({ onDone, onSignOut }: { onDone: () => void; onSignOut: () => void }) {
   const [lostPhone, setLostPhone] = useState(false);
   if (lostPhone) return <RecoveryCodeLogin onRecovered={onDone} onBack={() => setLostPhone(false)} onSignOut={onSignOut} />;
-
-  async function verify(code: string) {
-    const supabase = getSupabase();
-    const { data: factors } = await supabase.auth.mfa.listFactors();
-    const factor = factors?.totp[0];
-    if (!factor) return "Nenhum código cadastrado. Fale com o administrador.";
-    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
-    if (error) return codeError(error.message);
-    onDone();
-    return null;
-  }
 
   return (
     <CenteredCard>
       <Smartphone className="mx-auto size-10 text-brand-600" aria-hidden="true" />
       <h1 className="mt-4 font-display text-xl font-bold text-night-900">Verificação em duas etapas</h1>
       <p className="mt-2 text-sm text-slate-600">Abra o app Senhas (ou seu app autenticador) e digite o código do painel.</p>
-      <CodeForm onSubmit={verify} label="Código de 6 dígitos" />
+      <CodeForm onSubmit={(code) => confirmCode(code, onDone)} label="Código de 6 dígitos" />
       <button type="button" onClick={() => setLostPhone(true)} className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline">
         <LifeBuoy className="size-4" aria-hidden="true" /> Perdi o celular: usar código reserva
       </button>
@@ -117,38 +103,23 @@ export function MfaChallenge({ onDone, onSignOut }: { onDone: () => void; onSign
   );
 }
 
-/** Primeiro acesso: cadastra o código no app (obrigatório para usar o painel). */
+/** Primeiro acesso (ou celular novo): cadastra o código no app (obrigatório para usar o painel). */
 export function MfaEnroll({ onDone, onSignOut }: { onDone: () => void; onSignOut: () => void }) {
-  const [factor, setFactor] = useState<{ id: string; qr: string; secret: string; uri: string } | null>(null);
+  const [factor, setFactor] = useState<{ secret: string; uri: string } | null>(null);
   const [failed, setFailed] = useState(false);
   const [copied, setCopied] = useState(false);
+  const qr = useMemo(() => (factor ? `data:image/svg+xml;utf8,${encodeURIComponent(renderSVG(factor.uri, { border: 2 }))}` : null), [factor]);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const supabase = getSupabase();
-      // Remove cadastros que ficaram pela metade (ex.: página fechada antes de confirmar).
-      const { data: existing } = await supabase.auth.mfa.listFactors();
-      for (const item of existing?.all ?? []) {
-        if (item.factor_type === "totp" && item.status !== "verified") await supabase.auth.mfa.unenroll({ factorId: item.id });
-      }
-      const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", issuer: "DC Eco Energy", friendlyName: `Painel ${new Date().toISOString()}` });
-      if (cancelled) return;
-      if (error || !data) return setFailed(true);
-      setFactor({ id: data.id, qr: data.totp.qr_code, secret: data.totp.secret, uri: data.totp.uri });
-    })();
+    startEnroll().then(
+      (data) => !cancelled && setFactor(data),
+      () => !cancelled && setFailed(true),
+    );
     return () => {
       cancelled = true;
     };
   }, []);
-
-  async function verify(code: string) {
-    if (!factor) return "Aguarde o QR code carregar.";
-    const { error } = await getSupabase().auth.mfa.challengeAndVerify({ factorId: factor.id, code });
-    if (error) return codeError(error.message);
-    onDone();
-    return null;
-  }
 
   async function copySecret() {
     if (!factor) return;
@@ -176,12 +147,12 @@ export function MfaEnroll({ onDone, onSignOut }: { onDone: () => void; onSignOut
         <p role="alert" className="mt-6 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-800 ring-1 ring-rose-200">
           Não foi possível iniciar o cadastro. Atualize a página e tente novamente.
         </p>
-      ) : !factor ? (
+      ) : !factor || !qr ? (
         <LoaderCircle className="mx-auto mt-6 size-6 animate-spin text-slate-400" aria-label="Gerando QR code…" />
       ) : (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={factor.qr} alt="QR code para o app de códigos" className="mx-auto mt-6 size-48 rounded-xl bg-white p-2 ring-1 ring-slate-200" />
+          <img src={qr} alt="QR code para o app de códigos" className="mx-auto mt-6 size-48 rounded-xl bg-white p-2 ring-1 ring-slate-200" />
           <p className="mt-4 text-xs text-slate-500">Está no próprio celular?</p>
           <a href={factor.uri} className="mt-1 inline-block text-sm font-semibold text-brand-700 hover:underline">
             Abrir no app de códigos
@@ -191,7 +162,7 @@ export function MfaEnroll({ onDone, onSignOut }: { onDone: () => void; onSignOut
             {factor.secret} <Copy className="size-3.5 shrink-0" aria-hidden="true" />
           </button>
           {copied && <p className="mt-1 text-xs text-brand-700">Chave copiada.</p>}
-          <CodeForm onSubmit={verify} label="Código de 6 dígitos do app" />
+          <CodeForm onSubmit={(code) => confirmCode(code, onDone)} label="Código de 6 dígitos do app" />
         </>
       )}
       <SignOutLink onSignOut={onSignOut} />
@@ -211,16 +182,13 @@ function RecoveryCodeLogin({ onRecovered, onBack, onSignOut }: { onRecovered: ()
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const supabase = getSupabase();
-    const { data, error: rpcError } = await supabase.rpc("use_recovery_code", { code });
-    if (rpcError || data !== true) {
+    try {
+      await redeemRecoveryCode(code);
+      onRecovered();
+    } catch (problem) {
       setBusy(false);
-      setError(rpcError && /Muitas tentativas/.test(rpcError.message) ? "Muitas tentativas. Aguarde 1 hora." : "Código reserva inválido ou já usado.");
-      return;
+      setError(errorMessage(problem, "Código reserva inválido ou já usado."));
     }
-    // A sessão precisa saber que o app antigo foi removido.
-    await supabase.auth.refreshSession();
-    onRecovered();
   }
 
   return (
@@ -267,10 +235,9 @@ function RecoveryCodeLogin({ onRecovered, onBack, onSignOut }: { onRecovered: ()
   );
 }
 
-/** Quantos códigos reserva ainda não usados; `null` se o banco ainda não tem o recurso. */
+/** Quantos códigos reserva ainda não usados; `null` se não for possível saber. */
 export async function recoveryCodesRemaining(): Promise<number | null> {
-  const { data, error } = await getSupabase().rpc("recovery_codes_remaining");
-  return error || typeof data !== "number" ? null : data;
+  return (await getMe())?.recoveryRemaining ?? null;
 }
 
 /** Gera códigos reserva novos (os antigos deixam de valer) e mostra uma única vez. */
@@ -284,10 +251,12 @@ export function RecoveryCodesPanel({ onDone, intro }: { onDone?: () => void; int
   async function generate() {
     setBusy(true);
     setError(null);
-    const { data, error: rpcError } = await getSupabase().rpc("generate_recovery_codes");
+    try {
+      setCodes((await generateRecoveryCodes()).codes);
+    } catch (problem) {
+      setError(errorMessage(problem, "Não foi possível gerar os códigos. Atualize a página e tente novamente."));
+    }
     setBusy(false);
-    if (rpcError || !Array.isArray(data)) return setError("Não foi possível gerar os códigos. Atualize a página e tente novamente.");
-    setCodes(data as string[]);
   }
 
   const text = codes ? `Códigos reserva do painel DC Eco Energy (cada um vale uma vez)\nGerados em ${new Date().toLocaleString("pt-BR")}\n\n${codes.join("\n")}\n` : "";

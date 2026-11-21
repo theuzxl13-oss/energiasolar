@@ -11,7 +11,7 @@ import { ProjectArt } from "@/components/illustrations/project-art";
 import { DemoBadge } from "@/components/ui/primitives";
 import { AdminPageHeader, DemoNote } from "./ui";
 import { Field, inputClass } from "./form-fields";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { isBackendEnabled } from "@/lib/backend/client";
 
 const buttonGhost = "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50";
 
@@ -158,10 +158,10 @@ export function ProjectsManager() {
         }
       />
       <DemoNote>
-        {isSupabaseConfigured ? (
+        {isBackendEnabled ? (
           <>
             Os projetos ficam salvos no banco de dados e aparecem para todos no site (página Projetos, prévia da página inicial e página de cada projeto).
-            As fotos são reduzidas automaticamente e enviadas ao armazenamento do Supabase.
+            As fotos são reduzidas automaticamente e guardadas no servidor do site.
           </>
         ) : (
           <>

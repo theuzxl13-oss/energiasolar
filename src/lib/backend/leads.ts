@@ -1,13 +1,7 @@
 import type { Lead, LeadStatus } from "@/types";
-import { leadToRow } from "@/lib/leads/build";
-import { getSupabase } from "./client";
+import { api } from "./client";
 
-/**
- * Leads no Supabase direto do navegador (site estático, sem rotas de servidor).
- * - Visitante anônimo: só pode INSERIR (sem ler de volta).
- * - Equipe logada: lê e atualiza o status.
- * As permissões são garantidas pelo RLS em `supabase/schema.sql`.
- */
+/** Leads no banco da Cloudflare (equipe logada com a segunda etapa). */
 
 interface LeadRow {
   id: string;
@@ -49,20 +43,10 @@ function toLead(row: LeadRow): Lead {
   };
 }
 
-/** Grava um lead enviado pelo site direto no banco (antes da etapa final do "não sou robô"). */
-export async function insertLead(lead: Lead): Promise<Lead> {
-  const { error } = await getSupabase().from("leads").insert(leadToRow(lead));
-  if (error) throw new Error("Não foi possível enviar agora. Tente novamente ou fale conosco pelo WhatsApp.");
-  return lead;
-}
-
 export async function fetchLeads(): Promise<Lead[]> {
-  const { data, error } = await getSupabase().from("leads").select("*").order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data as LeadRow[]).map(toLead);
+  return (await api<LeadRow[]>("/api/admin/leads")).map(toLead);
 }
 
 export async function updateLeadStatus(id: string, status: LeadStatus) {
-  const { error } = await getSupabase().from("leads").update({ status }).eq("id", id);
-  if (error) throw error;
+  await api(`/api/admin/leads/${encodeURIComponent(id)}`, { method: "PATCH", body: { status } });
 }
