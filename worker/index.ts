@@ -14,7 +14,7 @@ import { chatRequestSchema } from "../src/lib/validations/chat";
 import { buildSystemPrompt } from "../src/services/ai/knowledge-base";
 import type { ChatMessage } from "../src/types";
 import { handleAdmin, publicContent, publicImage } from "./admin";
-import { handleAuth, handleUsers } from "./auth";
+import { handleAuth, handleUsers, mfaRequired } from "./auth";
 import { backupConfigured, backupNow, runBackup } from "./backup";
 import { ensureSchema } from "./db";
 import { json, limited, readJson, type Env } from "./http";
@@ -66,7 +66,7 @@ async function route(request: Request, env: Env, pathname: string): Promise<Resp
     case "/api/backup/run":
       return backupNow(request, env);
     case "/api/status":
-      return json({ database: true, turnstile: turnstileEnabled(env), backup: backupConfigured(env), email: Boolean(env.RESEND_API_KEY) });
+      return json({ database: true, mfa: mfaRequired(env), turnstile: turnstileEnabled(env), backup: backupConfigured(env), email: Boolean(env.RESEND_API_KEY) });
   }
   return json({ error: "Não encontrado." }, 404);
 }

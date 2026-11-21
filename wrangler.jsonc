@@ -26,6 +26,9 @@
     "run_worker_first": ["/api/*"]
   },
   "d1_databases": [{ "binding": "DB", "database_name": "dc-eco-energy", "database_id": "e89e036c-c858-442a-bdbe-cde5185709f8" }],
+  // Verificação em duas etapas (código do app) no login do painel.
+  // "false" = só a senha (temporário); "true" = senha + código do app, com códigos reserva.
+  "vars": { "REQUIRE_MFA": "false" },
   // Backup por e-mail todo dia 1º às 12h UTC (9h em Brasília).
   "triggers": { "crons": ["0 12 1 * *"] },
   // Limite por visitante (IP), por rota: 8 requisições por minuto.

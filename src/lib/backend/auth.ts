@@ -15,6 +15,8 @@ export type MfaStep = "ok" | "challenge" | "enroll";
 export interface Me {
   user: AdminUser;
   mfa: MfaStep;
+  /** Verificação em duas etapas ligada no servidor. */
+  mfaRequired: boolean;
   recoveryRemaining: number | null;
 }
 

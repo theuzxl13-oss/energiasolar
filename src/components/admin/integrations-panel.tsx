@@ -28,9 +28,11 @@ export function IntegrationsPanel({ ai, googleReviews }: { ai: { active: boolean
     {
       name: "Proteção do painel",
       active: isBackendEnabled,
-      detail: isBackendEnabled
-        ? "Login com senha + código do app (verificação em duas etapas), sessão de 12 horas em cookie protegido e freio contra tentativas repetidas."
-        : "Sem login: o painel só funciona no modo demonstração.",
+      detail: !isBackendEnabled
+        ? "Sem login: o painel só funciona no modo demonstração."
+        : server?.mfa
+          ? "Login com senha + código do app (verificação em duas etapas), sessão de 12 horas em cookie protegido e freio contra tentativas repetidas."
+          : "Login com senha, sessão de 12 horas em cookie protegido e freio contra tentativas repetidas. Verificação em duas etapas DESLIGADA (ligue com REQUIRE_MFA = \"true\" em wrangler.jsonc).",
     },
     {
       name: "WhatsApp",
@@ -82,7 +84,7 @@ export function IntegrationsPanel({ ai, googleReviews }: { ai: { active: boolean
         ))}
       </ul>
       </Panel>
-      {isBackendEnabled && <RecoveryCodesSection />}
+      {isBackendEnabled && server?.mfa && <RecoveryCodesSection />}
       {isBackendEnabled && <AccountSections />}
     </>
   );
@@ -131,7 +133,7 @@ function useAiStatus(fallback: { active: boolean; detail: string }) {
 
 /** O que está configurado no servidor (Cloudflare Worker). `null` enquanto carrega ou sem servidor. */
 function useServerStatus() {
-  const [status, setStatus] = useState<{ turnstile: boolean; backup: boolean } | null>(null);
+  const [status, setStatus] = useState<{ mfa: boolean; turnstile: boolean; backup: boolean } | null>(null);
   useEffect(() => {
     let cancelled = false;
     fetch("/api/status", { cache: "no-store" })

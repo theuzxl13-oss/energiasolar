@@ -54,7 +54,7 @@ export function LoginForm() {
         setMode("sent");
       } else {
         await login(email.trim(), password);
-        // O painel pede o código do app em seguida.
+        // Com a verificação em duas etapas ligada, o painel pede o código do app em seguida.
         router.replace(target);
       }
     } catch (problem) {

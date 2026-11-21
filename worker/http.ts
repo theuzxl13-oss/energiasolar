@@ -7,6 +7,8 @@ export interface Env {
   CHAT_LIMITER?: { limit(options: { key: string }): Promise<{ success: boolean }> };
   /** Código pedido na tela de configuração inicial (criação do primeiro administrador). */
   ADMIN_SETUP_SECRET?: string;
+  /** "true" liga a verificação em duas etapas (código do app) no login do painel. */
+  REQUIRE_MFA?: string;
   // Chat (Gemini)
   GEMINI_API_KEY?: string;
   GEMINI_MODEL?: string;
